@@ -21,15 +21,10 @@
 #include <semaphore.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include "server.h"
 
 #define SERVER_FILES "../src/serverfiles"
 #define SERVER_ROOT "../src/serverroot"
-
-int send_response(int, void *, int);
-int get_file(int, char *);
-struct file_data *file_load(char *);
-void file_free(struct file_data *);
-
 
 int send_response(int fd, void *body, int content_length){
     char* response = calloc(content_length, sizeof(char));
@@ -43,10 +38,7 @@ int send_response(int fd, void *body, int content_length){
     return (int)rv;
 }
 
-struct file_data {
-    int size;
-    void *data;
-};
+
 
 int get_file(int fd, char *filename) {
     struct file_data *filedata;

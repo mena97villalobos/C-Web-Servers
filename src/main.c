@@ -20,7 +20,7 @@
 #include <sys/shm.h>
 #include <semaphore.h>
 #include <fcntl.h>
-#include "server.c"
+#include "server.h"
 
 
 #define PORT "8080"
