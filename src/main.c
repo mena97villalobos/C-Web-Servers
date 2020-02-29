@@ -20,15 +20,13 @@
 #include <sys/shm.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include "server.c"
 
 
 #define PORT "8080"
 
 
 void main() {
-
-    int newfd;
-    int newfdmodify;
     struct sockaddr_storage their_addr;
     struct sockaddr_storage addr_modify;
 
@@ -41,10 +39,10 @@ void main() {
         exit(1);
     }
 
-    char *buffer[100];
-    while (1) {
-        int a = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
-        read(a, buffer, 100);
-        printf(buffer);
-    }
+    char *buffer[1000];
+    int a = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
+    int readChars = read(a, buffer, 1000);
+    buffer[readChars] ="\0";
+    get_file(a, buffer);
+    printf(buffer);
 }
