@@ -59,8 +59,12 @@ int get_listener_socket(char *port)
     for(p = servinfo; p != NULL; p = p->ai_next) {
 
         // Try to make a socket based on this candidate interface
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1) {
+//        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+//            //perror("server: socket");
+//            continue;
+//        }
+
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, 0)) == -1) {
             //perror("server: socket");
             continue;
         }

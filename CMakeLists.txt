@@ -14,7 +14,9 @@ add_executable(projecto-2
         src/net.c
         src/net.h
         src/server.c
+        src/server.h
         src/main.c
+        #        clientSRC/client.c
 )
 
 target_link_libraries(${PROJECT_NAME} OpenSSL::Crypto)
