@@ -39,10 +39,12 @@ void main() {
         exit(1);
     }
 
-    char *buffer[1000];
-    int a = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
-    int readChars = read(a, buffer, 1000);
-    buffer[readChars] ="\0";
-    get_file(a, buffer);
-    printf(buffer);
+    char buffer[1000];
+    memset(buffer, 0, 1000);
+    while(1) {
+        int a = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
+        int readChars = read(a, buffer, 1000);
+        printf(buffer);
+        get_file(a, buffer);
+    }
 }

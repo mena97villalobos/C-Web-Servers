@@ -1,4 +1,3 @@
-
 # include <stdio.h>
 # include <stdlib.h>
 # include <sys/socket.h>
@@ -10,9 +9,8 @@
 # include <fcntl.h>
 # include <errno.h>
 #include "argValidator.h"
-#include <libexplain/connect.h>
 
-#define OUT_FILE "~/Desktop/salida.txt"
+#define OUT_FILE "salida.txt"
 
 const char *help_string = "Usage: client <maquina> <puerto> <archivo> <n-thread> <n-ciclos>\n";
 
@@ -26,34 +24,39 @@ void errExit(const char *str) {
     exit(-1);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
     struct addrinfo *result, hints;
-    int srvfd, rwerr;
-    char *request, buf[5000000];
+    int srvfd, rwerr = 42;
+    char *request, buf[5000000], port[6], ip[16], filename[15];
 
     if (argc < 6)
         errExit(help_string);
 
     // Validate program arguments
-    if (!validate_ip(argv[1])) {
-        errExit("Invalid IP Address");
-    }
-    if (!validate_port(argv[2])) {
-        errExit("Invalid port");
-    }
-    if (!validate_number(argv[4])) {
-        errExit("Invalid n-threads");
-    }
-    if (!validate_number(argv[5])) {
-        errExit("Invalid n-cycles");
-    }
+    if (!validate_ip(argv[1])) errExit("Invalid IP Address");
+    if (!validate_port(argv[2])) errExit("Invalid port");
+    if (!validate_number(argv[4])) errExit("Invalid n-threads");
+    if (!validate_number(argv[5])) errExit("Invalid n-cycles");
+
+    memset(port, 0, 6);
+    memset(ip, 0, 16);
+
+    strncpy(ip, argv[1], strlen(argv[1]));
+    strncpy(port, argv[2], strlen(argv[2]));
+    strncpy(filename, argv[3], strlen(argv[3]));
+
+    printf(filename);
+    printf("\n");
+    printf(ip);
+    printf("\n");
+    fflush(stdout);
 
     memset(&hints, 0, sizeof(struct addrinfo));
 
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    if (0 != getaddrinfo(argv[1], argv[2], &hints, &result))
+    if (0 != getaddrinfo(ip, port, &hints, &result))
         errExit("getaddrinfo");
 
     // Create socket after retrieving the inet protocol to use (getaddrinfo)
@@ -63,53 +66,24 @@ int main(int argc, char *argv[]) {
         errExit("socket()");
 
     if (connect(srvfd, result->ai_addr, result->ai_addrlen) == -1) {
-        fprintf(stderr, "%s\n", explain_connect(srvfd, result->ai_addr, result->ai_addrlen));
         errExit("connect");
     }
-
-    char *serverFileName = codificar(argv[3]);
-    write(srvfd, serverFileName, strlen(serverFileName));
+    write(srvfd, filename, strlen(filename));
 
     // Turn down socket
     shutdown(srvfd, SHUT_WR);
 
-    FILE *destFile = fopen(OUT_FILE, "w");
+    FILE *destFile = fopen(OUT_FILE, "wb");
 
-    do {
+    int c = 0;
+    while (rwerr > 0) {
         rwerr = read(srvfd, buf, 5000000);
-        write(fileno(destFile), buf, rwerr);
-    } while (rwerr > 0);
-
+        printf(c++);
+        fwrite(buf, 1, rwerr, destFile);
+    }
+    fclose(destFile);
     close(srvfd);
 
     return 0;
 
-}
-
-char *concat(const char *s1, const char *s2) {
-    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
-    // in real code you would check for errors in malloc here
-    strcpy(result, s1);
-    strcat(result, s2);
-    return result;
-}
-
-char *codificar(char string[]) {
-    FILE *fp;
-    char *result = (char *) malloc(1035 * sizeof(char));
-    char *c1 = concat("echo \"", string);
-    char *command = concat(c1,
-                           "\" | sed 's/ /%20/g;s/!/%21/g;s/\"/%22/g;s/#/%23/g;s/\\\\$/%24/g;s/\\\\&/%26/g;s/'\\\''/%27/g;s/(/%28/g;s/)/%29/g;s/:/%%3A/g'");
-
-    /* Open the command for reading. */
-    fp = popen(command, "r");
-    if (fp == NULL) {
-        while (fp == NULL) {
-            fp = popen(command, "r");
-        }
-    }
-
-    fgets(result, 1034, fp);
-    pclose(fp);
-    return result;
 }

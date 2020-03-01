@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(projecto-2)
+project(projecto-client)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -10,7 +10,7 @@ if (OPENSSL_FOUND)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
 endif ()
 
-add_executable(projecto-2
+add_executable(projecto-client
         client.c
         argValidator.h
         argValidator.c

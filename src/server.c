@@ -23,8 +23,8 @@
 #include <sys/stat.h>
 #include "server.h"
 
-#define SERVER_FILES "../src/serverfiles"
-#define SERVER_ROOT "../src/serverroot"
+#define SERVER_FILES "./serverfiles"
+#define SERVER_ROOT "./serverroot"
 
 int send_response(int fd, void *body, int content_length){
     char* response = calloc(content_length, sizeof(char));
@@ -43,7 +43,7 @@ int send_response(int fd, void *body, int content_length){
 int get_file(int fd, char *filename) {
     struct file_data *filedata;
     char filepath[1017];
-    sprintf(filepath, "%s/%s", SERVER_ROOT, filename);
+    sprintf(filepath, "%s/%s", SERVER_ROOT, "a.txt");
 
     filedata = file_load(filepath);
     if (filedata == NULL) {

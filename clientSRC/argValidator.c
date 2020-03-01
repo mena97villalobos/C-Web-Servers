@@ -13,9 +13,12 @@ int validate_number(char *str) {
     return 1;
 }
 
-int validate_ip(char *ip) { //check whether the IP is valid or not
+int validate_ip(char *ipOriginal) { //check whether the IP is valid or not
     int i, num, dots = 0;
     char *ptr;
+    char ip[strlen(ipOriginal)];
+    strcpy(ip, ipOriginal);
+
     if (ip == NULL)
         return 0;
     ptr = strtok(ip, "."); //cut the string using dor delimiter
