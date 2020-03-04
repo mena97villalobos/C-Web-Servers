@@ -13,8 +13,8 @@ endif()
 add_executable(projecto-2
         src/net.c
         src/net.h
-        src/server.c
-        src/server.h
+        src/mime.c
+        src/mime.h
         src/main.c
         #        clientSRC/client.c
 )
