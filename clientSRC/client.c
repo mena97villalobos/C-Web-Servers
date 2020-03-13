@@ -69,12 +69,19 @@ void substring(char s[], char sub[], int p, int l) {
 
 // Code for do request
 void make_request(char *request, char *port, char *ip){
-    printf("%s\n",request );
     //Define inicitial variables
     struct addrinfo *result = NULL, hints;
     int srvfd = 0, rwerr = 42;
     char *temp_buf = (char*) malloc((BUFFER_SIZE+1)*sizeof(char));
+    if (temp_buf == NULL) {
+        fprintf(stderr, "Error in malloc of temp_buf");
+        return;
+    }
     char *buf = (char*) malloc((BUFFER_SIZE+1)*sizeof(char));
+    if (temp_buf == NULL) {
+        fprintf(stderr, "Error in malloc of buf");
+        return;
+    }
     
     // Clen variables
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -143,7 +150,6 @@ void make_request(char *request, char *port, char *ip){
 
 void *thread_request(void *arguments){
     struct arg_thread* args = (struct arg_thread*) arguments;
-    printf("%s\n", args->request);
     for (int i = 0; i < args->n_cycles; ++i)
     {
         make_request(args->request, args->port, args->ip);
@@ -153,7 +159,7 @@ void *thread_request(void *arguments){
 int main(int argc, char **argv) {
     //Define inicitial variables
     int n_threads = 0, n_cycles = 0;
-    char *request= NULL, port[6]="", ip[16]="", filename[1000]="";
+    char port[6]="", ip[16]="", filename[1000]="";
 
     //Check the count of arguments
     if (argc < 6)
@@ -178,10 +184,9 @@ int main(int argc, char **argv) {
     n_cycles =atoi(argv[5]);
 
     //Create http request
-    request = (char*) malloc((54+strlen(filename)+strlen(ip))*sizeof(char));
+    char request[54+strlen(filename)+strlen(ip)];
     sprintf(request,"GET /%s HTTP/1.1\nHost: %s\nUser-agent: simple-http client\n\n",filename,ip);
     pthread_t all_tid[n_threads];
-    printf("%s\n", request);
 
     struct arg_thread args;
     args.request = request;
@@ -197,8 +202,6 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < n_threads; i++) /* Wait until all threads are finished */
         pthread_join(all_tid[i], NULL);
-
-    free(request);
 
     return 0;
 }
