@@ -69,7 +69,7 @@ void substring(char s[], char sub[], int p, int l) {
 
 // Code for do request
 void make_request(char *request, char *port, char *ip){
-    printf("%s\n", request);
+    printf("%s\n",request );
     //Define inicitial variables
     struct addrinfo *result = NULL, hints;
     int srvfd = 0, rwerr = 42;
@@ -143,6 +143,7 @@ void make_request(char *request, char *port, char *ip){
 
 void *thread_request(void *arguments){
     struct arg_thread* args = (struct arg_thread*) arguments;
+    printf("%s\n", args->request);
     for (int i = 0; i < args->n_cycles; ++i)
     {
         make_request(args->request, args->port, args->ip);
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
     // Clen variables
     memset(port, 0, 6);
     memset(ip, 0, 16);
-    memset(filename, 0, 15);    
+    memset(filename, 0, 1000);    
 
     // Copy data to variables
     strncpy(ip, argv[1], strlen(argv[1]));
@@ -177,10 +178,10 @@ int main(int argc, char **argv) {
     n_cycles =atoi(argv[5]);
 
     //Create http request
-    request = calloc(54+strlen(filename)+strlen(ip),1);
+    request = (char*) malloc((54+strlen(filename)+strlen(ip))*sizeof(char));
     sprintf(request,"GET /%s HTTP/1.1\nHost: %s\nUser-agent: simple-http client\n\n",filename,ip);
-    request[54+strlen(filename)+strlen(ip)]='\0';
     pthread_t all_tid[n_threads];
+    printf("%s\n", request);
 
     struct arg_thread args;
     args.request = request;
@@ -196,6 +197,8 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < n_threads; i++) /* Wait until all threads are finished */
         pthread_join(all_tid[i], NULL);
+
+    free(request);
 
     return 0;
 }
