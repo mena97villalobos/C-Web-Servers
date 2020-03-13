@@ -153,6 +153,7 @@ int handle_http_request(int fd) {
     }
     if (bytes_recvd > 0) {
         request[bytes_recvd] = '\0';
+        printf("%s\n", request);
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
