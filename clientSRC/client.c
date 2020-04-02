@@ -1,17 +1,17 @@
-# include <stdio.h>
-# include <stdlib.h>
-# include <sys/socket.h>
-# include <arpa/inet.h>
-# include <netinet/in.h>
-# include <netdb.h>
-# include <string.h>
-# include <unistd.h>
-# include <fcntl.h>
-# include <errno.h>
-# include "argValidator.h"
-# include <pthread.h>
-# include <semaphore.h> 
-# include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include "argValidator.h"
+#include <pthread.h>
+#include <semaphore.h> 
+#include <time.h>
 
 #define OUT_FILE "salida.txt"
 #define BUFFER_SIZE 1024
@@ -204,11 +204,13 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
 }
 
 void *thread_request(void *arguments){
-    struct arg_thread* args = (struct arg_thread*) arguments;
-    for (int i = 0; i < args->n_cycles; ++i)
+    struct arg_thread args = *((struct arg_thread *) arguments);
+    for (int i = 0; i < args.n_cycles; ++i)
     {
-        make_request(args->request, args->port, args->ip, (int)args->id_thread*(int)args->n_cycles, i);
+        make_request(args.request, args.port, args.ip, args.id_thread*args.n_cycles, i);
     }
+
+    free(arguments);
 }
 
 double calculate_average_speed(int n_threads, int n_cycles){
@@ -297,14 +299,22 @@ int main(int argc, char **argv) {
 
     
     for (int i = 0; i < n_threads; i++) {
+        //--Arguments to send to thread
+        struct arg_thread *args_send = malloc(sizeof(*args_send));
         struct arg_thread args;
+        if (args_send == NULL ) {
+            fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
+            exit(EXIT_FAILURE);
+        }
         args.request = request;
         args.ip = ip;
         args.port = port;
         args.n_cycles = n_cycles;
         args.id_thread = i;
-        if (pthread_create(&all_tid[i], NULL, &thread_request, (void *)&args) != 0) {
+        *args_send = args;
+        if (pthread_create(&all_tid[i], NULL, &thread_request, args_send) != 0) {
             printf("Error in thread creation!\n");
+            free(arg_thread);
         }
     }
 
