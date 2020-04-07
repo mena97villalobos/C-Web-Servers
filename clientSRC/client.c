@@ -13,7 +13,7 @@
 #include <semaphore.h> 
 #include <time.h>
 
-#define OUT_FILE "salida.txt"
+#define OUT_FILE "salida"
 #define BUFFER_SIZE 1024
 
 //Bar
@@ -106,7 +106,7 @@ void substring(char s[], char sub[], int p, int l) {
 // Code for do request
 void make_request(char *request, char *port, char *ip, int id_location, int id_cycle){
     //Define inicitial variables
-    struct addrinfo *result = NULL, hints;
+    struct addrinfo *result, hints;
     int srvfd = 0, rwerr = 42;
     char temp_buf[BUFFER_SIZE];
     char buf[BUFFER_SIZE];
@@ -314,7 +314,7 @@ int main(int argc, char **argv) {
         *args_send = args;
         if (pthread_create(&all_tid[i], NULL, &thread_request, args_send) != 0) {
             printf("Error in thread creation!\n");
-            free(arg_thread);
+            free(args_send);
         }
     }
 
