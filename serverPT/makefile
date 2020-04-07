@@ -1,11 +1,11 @@
-CURRFILE=$(shell pwd)
+CURRFILE=$(shell cd ..; pwd)
 HEADERS=-I$(CURRFILE)/headers/
 CFLAGS=-g -Wall
 LIBRARIES=-lm -pthread -lrt
 
-OBJECTS=./src/argValidator.c ./src/main.c ./src/mime.c ./src/net.c
+OBJECTS=../commonSrc/argValidator.c ./main.c ../commonSrc/mime.c ../commonSrc/net.c
 
-All :  fullMake clean init starter
+All :  fullMake clean init serverPT
 
 init:
 	mkdir build
@@ -13,9 +13,9 @@ init:
 fullMake:
 	@echo Full make
 
-starter: $(OBJECTS)
-	@echo Server
-	gcc  $(CFLAGS) $(HEADERS) -o build/serverPT.o $(OBJECTS) $(LIBRARIES)
+serverPT: $(OBJECTS)
+	@echo Server PT
+	gcc  $(CFLAGS) $(HEADERS) -o build/serverPT $(OBJECTS) $(LIBRARIES)
 
 clean:
 	@echo Clean compile

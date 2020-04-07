@@ -35,6 +35,7 @@ const char *help_string = "Usage: client <maquina> <puerto> <archivo> <n-thread>
 double* mgby_sec;
 double* first_request_sec; 
 int error_request = 0;
+int clientCounter = 0;
 sem_t mutex; 
 
 //Struct for thread arguments
@@ -205,9 +206,14 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
 
 void *thread_request(void *arguments){
     struct arg_thread args = *((struct arg_thread *) arguments);
-    for (int i = 0; i < args.n_cycles; ++i)
-    {
-        make_request(args.request, args.port, args.ip, args.id_thread*args.n_cycles, i);
+    for (int i = 0; i < args.n_cycles; ++i) {
+        sem_wait(&mutex);
+        clientCounter += 1;
+        if (clientCounter % 100 == 0) {
+            printf("Clientes activados: %i\n", clientCounter);
+        }
+        sem_post(&mutex);
+        make_request(args.request, args.port, args.ip, args.id_thread * args.n_cycles, i);
     }
 
     free(arguments);

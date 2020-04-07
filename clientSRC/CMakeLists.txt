@@ -7,8 +7,8 @@ include_directories(clientSRC)
 
 add_executable(projecto-client
         client.c
-        argValidator.h
-        argValidator.c
+        ../headers/argValidator.h
+        ../commonSrc/argValidator.c
         )
 
 target_link_libraries(projecto-client pthread)
