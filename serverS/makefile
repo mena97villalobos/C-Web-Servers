@@ -5,7 +5,7 @@ LIBRARIES=-lm -pthread -lrt
 
 OBJECTS=../commonSrc/argValidator.c ./main.c ../commonSrc/mime.c ../commonSrc/net.c
 
-All :  fullMake clean init serverS
+All :  fullMake clean init server-secuencial
 
 init:
 	mkdir build
@@ -13,9 +13,9 @@ init:
 fullMake:
 	@echo Full make
 
-serverS: $(OBJECTS)
-	@echo Server S
-	gcc  $(CFLAGS) $(HEADERS) -o build/serverS $(OBJECTS) $(LIBRARIES)
+server-secuencial: $(OBJECTS)
+	@echo Server Secuencial
+	gcc  $(CFLAGS) $(HEADERS) -o build/server-secuencial $(OBJECTS) $(LIBRARIES)
 
 clean:
 	@echo Clean compile

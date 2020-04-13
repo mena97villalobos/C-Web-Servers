@@ -3,10 +3,10 @@ project(server-threads)
 
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(src)
+include_directories(../commonSrc ../headers)
 
 add_executable(server-threads
-        ./main.c
+        main.c
         ../commonSrc/argValidator.c
         ../commonSrc/net.c
         ../commonSrc/mime.c

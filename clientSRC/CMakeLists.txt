@@ -3,7 +3,7 @@ project(projecto-client)
 
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(clientSRC)
+include_directories(../commonSrc ../headers)
 
 add_executable(projecto-client
         client.c

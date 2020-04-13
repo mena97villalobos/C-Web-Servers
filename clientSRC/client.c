@@ -1,19 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 #include "argValidator.h"
 #include <pthread.h>
 #include <semaphore.h> 
 #include <time.h>
 
-#define OUT_FILE "salida"
+#define OUT_FILE "/dev/null"
 #define BUFFER_SIZE 1024
 
 //Bar
@@ -47,9 +44,7 @@ struct arg_thread{
     int id_thread;
 };
 
-//Funtions definition
-char *codificar(char string[]);
-char *concat(const char *s1, const char *s2);
+//Function definitions
 int final_header(char string[], int maxCheck);
 void substring(char [], char[], int, int);
 void errExit(const char *str);
@@ -69,7 +64,7 @@ void printProgress (double percentage)
     fflush (stdout);
 }
 
-//C final header function implementation, return -1 if the standar is incorrect
+//C final header function implementation, return -1 if the standard is incorrect
 int final_header(char string[], int maxCheck){
     int i = 0, j = 0, flat = 0;
 
@@ -104,9 +99,9 @@ void substring(char s[], char sub[], int p, int l) {
    sub[c] = '\0';
 }
 
-// Code for do request
+// Code to create a request
 void make_request(char *request, char *port, char *ip, int id_location, int id_cycle){
-    //Define inicitial variables
+    //Define initial variables
     struct addrinfo *result, hints;
     int srvfd = 0, rwerr = 42;
     char temp_buf[BUFFER_SIZE];
@@ -116,7 +111,7 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     memset(temp_buf, 0, BUFFER_SIZE);    
     memset(buf, 0, BUFFER_SIZE);
 
-    // Clen variables
+    // Clean variables
     memset(&hints, 0, sizeof(struct addrinfo));
 
     // Define internet protocol
@@ -133,11 +128,17 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
 
     if (srvfd < 0){
         fprintf(stderr, "%s\n","socket()");
+        sem_wait(&mutex);
+        error_request++;
+        sem_post(&mutex);
         return;
     }
 
     if (connect(srvfd, result->ai_addr, result->ai_addrlen) == -1) {
         fprintf(stderr, "%s\n","connect");
+        sem_wait(&mutex);
+        error_request++;
+        sem_post(&mutex);
         return;
     }
 
@@ -175,9 +176,9 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     substring(temp_buf,buf,header_final_location+1,bytesReceived-header_final_location+1);
     bytesReceived-=header_final_location;
 
-    //Cliying for get all file
+    //Cycling to get all files
     while(bytesReceived != 0){
-      fwrite(buf, bytesReceived, 1, destFile);
+      int a = fwrite(buf, bytesReceived, 1, destFile);
       bytesReceived = recv(srvfd, buf, BUFFER_SIZE, 0);
       total_bytes+=bytesReceived;
       if (bytesReceived<0){
@@ -192,7 +193,7 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     double time_spent_first = (double)(end_first - begin_first) / CLOCKS_PER_SEC;
-    long double total_megaby = (double)total_bytes * 0.000001;
+    double total_megaby = (double) total_bytes * 0.000001;
     double megaby_sec = total_megaby/time_spent;
     sem_wait(&mutex);
     mgby_sec[id_location+id_cycle]=megaby_sec;
@@ -209,19 +210,18 @@ void *thread_request(void *arguments){
     for (int i = 0; i < args.n_cycles; ++i) {
         sem_wait(&mutex);
         clientCounter += 1;
-        if (clientCounter % 100 == 0) {
-            printf("Clientes activados: %i\n", clientCounter);
-        }
+        printf("Clientes activados: %i\n", clientCounter);
         sem_post(&mutex);
         make_request(args.request, args.port, args.ip, args.id_thread * args.n_cycles, i);
     }
 
     free(arguments);
+    return NULL;
 }
 
 double calculate_average_speed(int n_threads, int n_cycles){
     int total_ok = 0;
-    long double total_speed = 0;
+    double total_speed = 0;
     for (int i = 0; i < n_threads*n_cycles; ++i)
     {
         if (mgby_sec[i]!='\0'){
@@ -237,7 +237,7 @@ double calculate_average_speed(int n_threads, int n_cycles){
 
 double calculate_average_first_speed(int n_threads, int n_cycles){
     int total_ok = 0;
-    long double total_speed = 0;
+    double total_speed = 0;
     for (int i = 0; i < n_threads*n_cycles; ++i)
     {
         if (first_request_sec[i]!='\0'){
@@ -252,7 +252,7 @@ double calculate_average_first_speed(int n_threads, int n_cycles){
 }
 
 int main(int argc, char **argv) {
-    //Define inicitial variables
+    //Define initial variables
     int n_threads = 0, n_cycles = 0;
     char port[6]="", ip[16]="", filename[1000]=""; 
     sem_init(&mutex, 0, 1);
@@ -267,7 +267,7 @@ int main(int argc, char **argv) {
     if (!validate_number(argv[4])) errExit("Invalid n-threads");
     if (!validate_number(argv[5])) errExit("Invalid n-cycles");
 
-    // Clen variables
+    // Clean variables
     memset(port, 0, 6);
     memset(ip, 0, 16);
     memset(filename, 0, 1000);    
@@ -276,8 +276,8 @@ int main(int argc, char **argv) {
     strncpy(ip, argv[1], strlen(argv[1]));
     strncpy(port, argv[2], strlen(argv[2]));
     strncpy(filename, argv[3], strlen(argv[3]));
-    n_threads =atoi(argv[4]);
-    n_cycles =atoi(argv[5]);
+    n_threads = atoi(argv[4]);
+    n_cycles = atoi(argv[5]);
 
     //Define global variables
     mgby_sec = (double*)malloc(n_threads * n_cycles * sizeof(double));

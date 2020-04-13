@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.12)
-project(server-predefine-threads)
+project(server-forks)
 
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(../commonSrc ../headers)
 
-add_executable(server-predefine-threads
+add_executable(server-forks
         main.c
         ../commonSrc/argValidator.c
         ../commonSrc/net.c
@@ -15,4 +15,4 @@ add_executable(server-predefine-threads
         ../headers/net.h
         )
 
-target_link_libraries(server-predefine-threads pthread)
+target_link_libraries(server-forks pthread)

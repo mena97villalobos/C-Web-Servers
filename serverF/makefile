@@ -5,7 +5,7 @@ LIBRARIES=-lm -pthread -lrt
 
 OBJECTS=../commonSrc/argValidator.c ./main.c ../commonSrc/mime.c ../commonSrc/net.c
 
-All :  fullMake clean init server-predefine-threads
+All :  fullMake clean init serverForks
 
 init:
 	mkdir build
@@ -13,9 +13,9 @@ init:
 fullMake:
 	@echo Full make
 
-server-predefine-threads: $(OBJECTS)
-	@echo Server Predefine Threads
-	gcc  $(CFLAGS) $(HEADERS) -o build/server-predefine-threads $(OBJECTS) $(LIBRARIES)
+serverForks: $(OBJECTS)
+	@echo Server Forks
+	gcc  $(CFLAGS) $(HEADERS) -o build/serverForks $(OBJECTS) $(LIBRARIES)
 
 clean:
 	@echo Clean compile
