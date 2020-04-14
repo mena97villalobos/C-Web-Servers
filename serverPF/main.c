@@ -10,8 +10,6 @@
 #include "../headers/net.h"
 #include "../headers/mime.h"
 #include "../headers/argValidator.h"
-#include <pthread.h>
-#include <sys/wait.h>
 
 #define SERVER_ROOT "../../serverroot"
 
@@ -22,7 +20,7 @@ struct file_data {
     void *data;
 };
 
-//Functions definition
+//Funtions definition
 void errExit(const char *str);
 
 char *find_start_of_body(char *header);
@@ -204,7 +202,7 @@ int handle_http_request(int fd) {
 }
 
 int main(int argc, char **argv) {
-    int newfd, pid;
+    int newfd;
     char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
@@ -227,26 +225,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "webserver: fatal error getting listening socket\n");
         exit(1);
     }
-
     while (1) {
         socklen_t sin_size = sizeof their_addr;
         newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
-
-        pid = fork();
-        // Child process, handle request
-        if (pid == 0) {
-            if (newfd == -1) {
-                perror("accept");
-            } else {
-                inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
-                handle_http_request(newfd);
-                shutdown(newfd, SHUT_RDWR);
-                close(newfd);
-            }
-            // Child process must leave the while statement to avoid creating another server
-            exit(0);
+        if (newfd == -1) {
+            perror("accept");
+            continue;
         }
+        inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
+        handle_http_request(newfd);
+        close(newfd);
     }
-
     return 0;
 }

@@ -5,7 +5,7 @@ LIBRARIES=-lm -lrt
 
 OBJECTS=../commonSrc/argValidator.c ./main.c ../commonSrc/mime.c ../commonSrc/net.c
 
-All :  fullMake clean init serverForks
+All :  fullMake clean init serverPredefineForks
 
 init:
 	mkdir build
@@ -13,9 +13,9 @@ init:
 fullMake:
 	@echo Full make
 
-serverForks: $(OBJECTS)
-	@echo Server Forks
-	gcc  $(CFLAGS) $(HEADERS) -o build/serverForks $(OBJECTS) $(LIBRARIES)
+serverPredefineForks: $(OBJECTS)
+	@echo Server Predefine Forks
+	gcc  $(CFLAGS) $(HEADERS) -o build/serverPredefineForks $(OBJECTS) $(LIBRARIES)
 
 clean:
 	@echo Clean compile
