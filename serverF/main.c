@@ -243,19 +243,14 @@ int main(int argc, char **argv) {
                 printf("Inicia peticion\n");
                 inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
                 handle_http_request(newfd);
+                shutdown(newfd, SHUT_RDWR);
                 close(newfd);
                 printf("Peticion resuelta\n");
             }
             // Child process must leave the while statement to avoid creating another server
             printf("Terminando fork\n");
-            break;
-        } else {
-            wait(NULL);
+            exit(0);
         }
-    }
-
-    if (pid == 0) {
-        printf("Fork afuera\n");
     }
 
     return 0;
