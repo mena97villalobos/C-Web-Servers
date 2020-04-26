@@ -7,9 +7,11 @@ include_directories(../commonSrc ../headers)
 
 add_executable(server-forks
         main.c
+        ../commonSrc/commonHttpFunctions.c
         ../commonSrc/argValidator.c
         ../commonSrc/net.c
         ../commonSrc/mime.c
+        ../headers/commonHttpFunctions.h
         ../headers/argValidator.h
         ../headers/mime.h
         ../headers/net.h

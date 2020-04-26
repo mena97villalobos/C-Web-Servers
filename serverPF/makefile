@@ -1,9 +1,9 @@
 CURRFILE=$(shell cd ..; pwd)
 HEADERS=-I$(CURRFILE)/headers/
 CFLAGS=-g -Wall
-LIBRARIES=-lm -lrt
+LIBRARIES=-lm -lrt -lpthread
 
-OBJECTS=../commonSrc/argValidator.c ./main.c ../commonSrc/mime.c ../commonSrc/net.c
+OBJECTS=../commonSrc/commonHttpFunctions.c ../commonSrc/argValidator.c ./main.c ../commonSrc/mime.c ../commonSrc/net.c
 
 All :  fullMake clean init serverPredefineForks
 
