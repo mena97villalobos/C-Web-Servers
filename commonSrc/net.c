@@ -59,16 +59,14 @@ int get_listener_socket(char *port)
     for(p = servinfo; p != NULL; p = p->ai_next) {
 
         // Try to make a socket based on this candidate interface
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             //perror("server: socket");
             continue;
         }
 
         // SO_REUSEADDR prevents the "address already in use" errors
         // that commonly come up when testing servers.
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                       sizeof(int)) == -1) {
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
             perror("setsockopt");
             close(sockfd);
             freeaddrinfo(servinfo); // all done with this structure

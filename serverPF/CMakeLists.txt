@@ -15,4 +15,4 @@ add_executable(server-predefine-forks
         ../headers/net.h
         )
 
-target_link_libraries(server-predefine-forks)
+target_link_libraries(server-predefine-forks pthread)

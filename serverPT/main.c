@@ -235,7 +235,6 @@ void *thread_request(){
             }
             handle_http_request(newfd);
             close(newfd);
-    
         }
     }
 }

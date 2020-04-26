@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -10,32 +11,41 @@
 #include "../headers/net.h"
 #include "../headers/mime.h"
 #include "../headers/argValidator.h"
+#include <pthread.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+
+union fdmsg {
+    struct cmsghdr h;
+    char buf[CMSG_SPACE(sizeof(int))];
+};
 
 #define SERVER_ROOT "../../serverroot"
 
-const char *help_string = "Usage: server <puerto>\n";
+const char *help_string = "Usage: server <port> <num_forks>\n";
 
 struct file_data {
     unsigned long size;
     void *data;
 };
 
-//Funtions definition
-void errExit(const char *str);
+//Functions definition
+void errExit(const char *);
 
-char *find_start_of_body(char *header);
+char *find_start_of_body(char *);
 
-void divide_request_path(char **request_divided, char *request_path);
+void divide_request_path(char **, char *);
 
-int send_response(int fd, char *header, char *content_type, void *body, unsigned long content_length);
+int send_response(int, char *, char *, void *, unsigned long);
 
-struct file_data *file_load(char *filename);
+struct file_data *file_load(char *);
 
-void file_free(struct file_data *filedata);
+void file_free(struct file_data *);
 
-void get_file(int fd, char *request_path);
+void get_file(int, char *);
 
-int handle_http_request(int fd);
+int handle_http_request(int);
 
 /**
  * Finds the start of the body on an HTTP request
@@ -162,22 +172,54 @@ void get_file(int fd, char *request_path) {
 }
 
 int handle_http_request(int fd) {
+
     const int request_buffer_size = 65536; // 64K
-    char request[request_buffer_size];
+    char *request = calloc(request_buffer_size, sizeof(char));
     char *p;
     char request_type[8];
     char request_path[1024];
     char request_protocol[128];
     char request_path_copy[1024];
     char *request_path_div[80];
-    int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
+
+    struct msghdr mhdr;
+    struct iovec iov[1];
+    struct cmsghdr *cmhdr;
+    char control[1000];
+    struct sockaddr_in sin;
+    char databuf[1500];
+    unsigned char tos;
+    int bytes_recvd = 0;
+
+    mhdr.msg_name = &sin;
+    mhdr.msg_namelen = sizeof(sin);
+    mhdr.msg_iov = iov;
+    mhdr.msg_iovlen = 1;
+    mhdr.msg_control = &control;
+    mhdr.msg_controllen = sizeof(control);
+    iov[0].iov_base = databuf;
+    iov[0].iov_len = sizeof(databuf);
+    memset(databuf, 0, sizeof(databuf));
+    if ((bytes_recvd = recvmsg(fd, &mhdr, 0)) == -1) {
+        perror("error on recvmsg");
+        exit(1);
+    } else {
+        cmhdr = CMSG_FIRSTHDR(&mhdr);
+        while (cmhdr) {
+            if (cmhdr->cmsg_level == IPPROTO_IP && cmhdr->cmsg_type == IP_TOS) {
+                // read the TOS byte in the IP header
+                tos = ((unsigned char *) CMSG_DATA(cmhdr))[0];
+            }
+            cmhdr = CMSG_NXTHDR(&mhdr, cmhdr);
+        }
+        printf("data read: %s, tos byte = %02X\n", databuf, tos);
+    }
 
     if (bytes_recvd < 0) {
         perror("recv");
         return 1;
     }
     if (bytes_recvd > 0) {
-        request[bytes_recvd] = '\0';
         printf("%s\n", request);
         p = find_start_of_body(request);
         if (p == NULL) {
@@ -201,40 +243,143 @@ int handle_http_request(int fd) {
     }
 }
 
+void *create_shared_memory(size_t size) {
+    int protection = PROT_READ | PROT_WRITE;
+    int flags = MAP_SHARED | MAP_ANONYMOUS | MAP_SYNC;
+
+    return mmap(NULL, size, protection, flags, -1, 0);
+}
+
+void *thread_request(
+        pthread_mutex_t *mut_allt,
+        pthread_cond_t *con_allt,
+        pthread_cond_t *con_server,
+        bool *is_used,
+        int *global_fd
+) {
+    int newfd = 0;
+    bool work = false;
+
+    while (1) {
+        work = false;
+
+        pthread_mutex_lock(mut_allt);
+        if (*is_used == true) {
+            newfd = *global_fd;
+            memset(is_used, false, sizeof(bool));
+            work = true;
+            pthread_cond_broadcast(con_server);
+        } else {
+            pthread_cond_wait(con_allt, mut_allt);
+            if (*is_used == true) {
+                newfd = *global_fd;
+                memset(is_used, false, sizeof(bool));
+                work = true;
+                pthread_cond_broadcast(con_server);
+            }
+        }
+        pthread_mutex_unlock(mut_allt);
+
+        if (work == true) {
+            handle_http_request(newfd);
+            shutdown(newfd, SHUT_RDWR);
+            close(newfd);
+        }
+    }
+}
+
 int main(int argc, char **argv) {
-    int newfd;
+
+    ////Variables to synchronize all processes
+    pthread_mutex_t *mut_allt;
+    pthread_cond_t *con_allt;
+    pthread_cond_t *con_server;
+
+    bool *is_used;
+    int *global_newfd;
+
+    int newfd, n_threads;
     char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
+    pid_t pid;
+
+    pthread_mutexattr_t mattr;
+    pthread_mutexattr_init(&mattr);
+    pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+
+    pthread_condattr_t cattr;
+    pthread_condattr_init(&cattr);
+    pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+
+    mut_allt = (pthread_mutex_t *) create_shared_memory(sizeof(pthread_mutex_t));
+    pthread_mutex_init(mut_allt, &mattr);
+    con_allt = (pthread_cond_t *) create_shared_memory(sizeof(pthread_cond_t));
+    pthread_cond_init(con_allt, &cattr);
+    con_server = (pthread_cond_t *) create_shared_memory(sizeof(pthread_cond_t));
+    pthread_cond_init(con_server, &cattr);
+
+    is_used = create_shared_memory(sizeof(bool));
+    global_newfd = create_shared_memory(sizeof(int));
 
     //Check the count of arguments
-    if (argc < 2)
+    if (argc < 3)
         errExit(help_string);
 
     // Validate program arguments
     if (!validate_port(argv[1])) errExit("Invalid port");
+    if (!validate_number(argv[2])) errExit("Invalid n-threads");
 
-    // Clen variables
+    // Clean variables
     memset(port, 0, 6);
 
     // Copy data to variables
     strncpy(port, argv[1], strlen(argv[1]));
+    n_threads = atoi(argv[2]);
 
     int listenfd = get_listener_socket(port);
     if (listenfd < 0) {
         fprintf(stderr, "webserver: fatal error getting listening socket\n");
         exit(1);
     }
+
+    for (int i = 0; i < n_threads; i++) {
+        pid = fork();
+        if (pid != 0) {
+            thread_request(
+                    mut_allt,
+                    con_allt,
+                    con_server,
+                    is_used,
+                    global_newfd
+            );
+            return 0;
+        }
+    }
+
     while (1) {
         socklen_t sin_size = sizeof their_addr;
         newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
+
         if (newfd == -1) {
             perror("accept");
             continue;
         }
+
+        //--Warn threads of a new customer
+        pthread_mutex_lock(mut_allt);
+        memset(is_used, true, sizeof(bool));
+        memcpy(global_newfd, &newfd, sizeof(int));
+        pthread_cond_broadcast(con_allt);
+        pthread_mutex_unlock(mut_allt);
+
+        //--Wait for the client to be taken by someone
+        pthread_mutex_lock(mut_allt);
+        if (*is_used == true) {
+            pthread_cond_wait(con_server, mut_allt);
+        }
+        pthread_mutex_unlock(mut_allt);
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
-        handle_http_request(newfd);
-        close(newfd);
     }
     return 0;
 }
