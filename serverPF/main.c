@@ -172,54 +172,22 @@ void get_file(int fd, char *request_path) {
 }
 
 int handle_http_request(int fd) {
-
     const int request_buffer_size = 65536; // 64K
-    char *request = calloc(request_buffer_size, sizeof(char));
+    char request[request_buffer_size];
     char *p;
     char request_type[8];
     char request_path[1024];
     char request_protocol[128];
     char request_path_copy[1024];
     char *request_path_div[80];
-
-    struct msghdr mhdr;
-    struct iovec iov[1];
-    struct cmsghdr *cmhdr;
-    char control[1000];
-    struct sockaddr_in sin;
-    char databuf[1500];
-    unsigned char tos;
-    int bytes_recvd = 0;
-
-    mhdr.msg_name = &sin;
-    mhdr.msg_namelen = sizeof(sin);
-    mhdr.msg_iov = iov;
-    mhdr.msg_iovlen = 1;
-    mhdr.msg_control = &control;
-    mhdr.msg_controllen = sizeof(control);
-    iov[0].iov_base = databuf;
-    iov[0].iov_len = sizeof(databuf);
-    memset(databuf, 0, sizeof(databuf));
-    if ((bytes_recvd = recvmsg(fd, &mhdr, 0)) == -1) {
-        perror("error on recvmsg");
-        exit(1);
-    } else {
-        cmhdr = CMSG_FIRSTHDR(&mhdr);
-        while (cmhdr) {
-            if (cmhdr->cmsg_level == IPPROTO_IP && cmhdr->cmsg_type == IP_TOS) {
-                // read the TOS byte in the IP header
-                tos = ((unsigned char *) CMSG_DATA(cmhdr))[0];
-            }
-            cmhdr = CMSG_NXTHDR(&mhdr, cmhdr);
-        }
-        printf("data read: %s, tos byte = %02X\n", databuf, tos);
-    }
+    int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
 
     if (bytes_recvd < 0) {
         perror("recv");
         return 1;
     }
     if (bytes_recvd > 0) {
+        request[bytes_recvd] = '\0';
         printf("%s\n", request);
         p = find_start_of_body(request);
         if (p == NULL) {
@@ -255,24 +223,34 @@ void *thread_request(
         pthread_cond_t *con_allt,
         pthread_cond_t *con_server,
         bool *is_used,
-        int *global_fd
+        const int socket_fd
 ) {
     int newfd = 0;
     bool work = false;
+    struct sockaddr_storage their_addr;
+    socklen_t sin_size = sizeof their_addr;
 
     while (1) {
         work = false;
 
         pthread_mutex_lock(mut_allt);
         if (*is_used == true) {
-            newfd = *global_fd;
+            newfd = accept(socket_fd, (struct sockaddr *) &their_addr, &sin_size);
+            if (newfd == -1) {
+                perror("accept");
+                continue;
+            }
             memset(is_used, false, sizeof(bool));
             work = true;
             pthread_cond_broadcast(con_server);
         } else {
             pthread_cond_wait(con_allt, mut_allt);
             if (*is_used == true) {
-                newfd = *global_fd;
+                newfd = accept(socket_fd, (struct sockaddr *) &their_addr, &sin_size);
+                if (newfd == -1) {
+                    perror("accept");
+                    continue;
+                }
                 memset(is_used, false, sizeof(bool));
                 work = true;
                 pthread_cond_broadcast(con_server);
@@ -286,6 +264,20 @@ void *thread_request(
             close(newfd);
         }
     }
+}
+
+pthread_condattr_t getConditionalAttribute() {
+    pthread_condattr_t cattr;
+    pthread_condattr_init(&cattr);
+    pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+    return cattr;
+}
+
+pthread_mutexattr_t getMutexAttributes() {
+    pthread_mutexattr_t mattr;
+    pthread_mutexattr_init(&mattr);
+    pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+    return mattr;
 }
 
 int main(int argc, char **argv) {
@@ -304,13 +296,8 @@ int main(int argc, char **argv) {
     char s[INET6_ADDRSTRLEN];
     pid_t pid;
 
-    pthread_mutexattr_t mattr;
-    pthread_mutexattr_init(&mattr);
-    pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-
-    pthread_condattr_t cattr;
-    pthread_condattr_init(&cattr);
-    pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+    pthread_mutexattr_t mattr = getMutexAttributes();
+    pthread_condattr_t cattr = getConditionalAttribute();
 
     mut_allt = (pthread_mutex_t *) create_shared_memory(sizeof(pthread_mutex_t));
     pthread_mutex_init(mut_allt, &mattr);
@@ -345,13 +332,13 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < n_threads; i++) {
         pid = fork();
-        if (pid != 0) {
+        if (pid == 0) {
             thread_request(
                     mut_allt,
                     con_allt,
                     con_server,
                     is_used,
-                    global_newfd
+                    listenfd
             );
             return 0;
         }
@@ -359,27 +346,34 @@ int main(int argc, char **argv) {
 
     while (1) {
         socklen_t sin_size = sizeof their_addr;
-        newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
+        // newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
 
-        if (newfd == -1) {
-            perror("accept");
-            continue;
+        fd_set set;
+        int rv;
+        FD_ZERO(&set); /* clear the set */
+        FD_SET(listenfd, &set); /* add our file descriptor to the set */
+
+        rv = select(listenfd + 1, &set, NULL, NULL, NULL);
+
+        if (rv == -1) {
+            perror("select"); /* an error accured */
+            return 1;
+        } else {
+            //--Warn threads of a new customer
+            pthread_mutex_lock(mut_allt);
+            memset(is_used, true, sizeof(bool));
+            memcpy(global_newfd, &newfd, sizeof(int));
+            pthread_cond_broadcast(con_allt);
+            pthread_mutex_unlock(mut_allt);
+
+            //--Wait for the client to be taken by someone
+            pthread_mutex_lock(mut_allt);
+            if (*is_used == true) {
+                pthread_cond_wait(con_server, mut_allt);
+            }
+            pthread_mutex_unlock(mut_allt);
+            inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
         }
-
-        //--Warn threads of a new customer
-        pthread_mutex_lock(mut_allt);
-        memset(is_used, true, sizeof(bool));
-        memcpy(global_newfd, &newfd, sizeof(int));
-        pthread_cond_broadcast(con_allt);
-        pthread_mutex_unlock(mut_allt);
-
-        //--Wait for the client to be taken by someone
-        pthread_mutex_lock(mut_allt);
-        if (*is_used == true) {
-            pthread_cond_wait(con_server, mut_allt);
-        }
-        pthread_mutex_unlock(mut_allt);
-        inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
     }
     return 0;
 }
