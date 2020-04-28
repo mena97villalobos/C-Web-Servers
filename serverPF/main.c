@@ -6,20 +6,27 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
 #include "../headers/commonHttpFunctions.h"
 #include "../headers/net.h"
 #include "../headers/argValidator.h"
 #include <pthread.h>
 #include <stdbool.h>
-#include <sys/types.h>
+#include <signal.h>
 
 const char *help_string = "Usage: server <port> <num_forks>\n";
+
+volatile int stop = 0;
 
 void *create_shared_memory(size_t);
 
 pthread_condattr_t get_conditional_attribute();
 
 pthread_mutexattr_t get_mutex_attributes();
+
+void sigalrm_handler(int sig) {
+    stop = 1;
+}
 
 void *create_shared_memory(size_t size) {
     int protection = PROT_READ | PROT_WRITE;
@@ -40,7 +47,7 @@ void *child_process(
     struct sockaddr_storage their_addr;
     socklen_t sin_size = sizeof their_addr;
 
-    while (1) {
+    while (!stop) {
         work = false;
 
         pthread_mutex_lock(mut_allt);
@@ -74,6 +81,7 @@ void *child_process(
             close(newfd);
         }
     }
+    return NULL;
 }
 
 pthread_condattr_t get_conditional_attribute() {
@@ -90,7 +98,31 @@ pthread_mutexattr_t get_mutex_attributes() {
     return mattr;
 }
 
+void key_listener() {
+    int ch = 0;
+    printf("Press q to kill all processes and terminate server\n");
+    // Wait for character "q" to be pressed
+    while (ch != 113) {
+        ch = getchar();
+    }
+    alarm(1);
+}
+
 int main(int argc, char **argv) {
+
+    struct sigaction sact;
+
+    sigemptyset(&sact.sa_mask);
+    sact.sa_flags = 0;
+    sact.sa_handler = sigalrm_handler;
+    sigaction(SIGALRM, &sact, NULL);
+
+    // Launch a fork to handle stdin and check if user wants to stop the program
+    pid_t keyboard_listener_pid = fork();
+    if (keyboard_listener_pid != 0) {
+        key_listener();
+        return 0;
+    }
 
     ////Variables to synchronize all processes
     pthread_mutex_t *mut_allt;
@@ -154,11 +186,12 @@ int main(int argc, char **argv) {
         }
     }
 
-    while (1) {
-        fd_set set;
-        int rv;
-        FD_ZERO(&set); /* clear the set */
-        FD_SET(listenfd, &set); /* add our file descriptor to the set */
+    fd_set set;
+    int rv;
+    FD_ZERO(&set); /* clear the set */
+    FD_SET(listenfd, &set); /* add our file descriptor to the set */
+
+    while (!stop) {
 
         rv = select(listenfd + 1, &set, NULL, NULL, NULL);
 
