@@ -16,17 +16,11 @@
 
 const char *help_string = "Usage: server <port> <num_forks>\n";
 
-volatile int stop = 0;
-
 void *create_shared_memory(size_t);
 
 pthread_condattr_t get_conditional_attribute();
 
 pthread_mutexattr_t get_mutex_attributes();
-
-void sigalrm_handler(int sig) {
-    stop = 1;
-}
 
 void *create_shared_memory(size_t size) {
     int protection = PROT_READ | PROT_WRITE;
@@ -47,7 +41,7 @@ void *child_process(
     struct sockaddr_storage their_addr;
     socklen_t sin_size = sizeof their_addr;
 
-    while (!stop) {
+    while (1) {
         work = false;
 
         pthread_mutex_lock(mut_allt);
@@ -105,25 +99,10 @@ void key_listener() {
     while (ch != 113) {
         ch = getchar();
     }
-    alarm(1);
+    kill(0, SIGKILL);
 }
 
 int main(int argc, char **argv) {
-
-    struct sigaction sact;
-
-    sigemptyset(&sact.sa_mask);
-    sact.sa_flags = 0;
-    sact.sa_handler = sigalrm_handler;
-    sigaction(SIGALRM, &sact, NULL);
-
-    // Launch a fork to handle stdin and check if user wants to stop the program
-    pid_t keyboard_listener_pid = fork();
-    if (keyboard_listener_pid != 0) {
-        key_listener();
-        return 0;
-    }
-
     ////Variables to synchronize all processes
     pthread_mutex_t *mut_allt;
     pthread_cond_t *con_allt;
@@ -137,6 +116,13 @@ int main(int argc, char **argv) {
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
     pid_t pid;
+
+    // Launch a fork to handle stdin and check if user wants to stop the program
+    pid_t keyboard_listener_pid = fork();
+    if (keyboard_listener_pid != 0) {
+        key_listener();
+        return 0;
+    }
 
     pthread_mutexattr_t mattr = get_mutex_attributes();
     pthread_condattr_t cattr = get_conditional_attribute();
@@ -191,7 +177,7 @@ int main(int argc, char **argv) {
     FD_ZERO(&set); /* clear the set */
     FD_SET(listenfd, &set); /* add our file descriptor to the set */
 
-    while (!stop) {
+    while (1) {
 
         rv = select(listenfd + 1, &set, NULL, NULL, NULL);
 

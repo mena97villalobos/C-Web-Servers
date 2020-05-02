@@ -10,6 +10,7 @@
 #include "../headers/argValidator.h"
 #include <pthread.h>
 #include <stdbool.h>
+#include <signal.h>
 
 const char *help_string = "Usage: server <puerto> <max-threads>\n";
 
@@ -19,6 +20,16 @@ pthread_cond_t con_allt = PTHREAD_COND_INITIALIZER; //Condition to broadcast all
 pthread_cond_t con_server = PTHREAD_COND_INITIALIZER; //Condition to broadcast server
 bool is_used = false;
 int global_newfd = 0;
+
+void key_listener() {
+    int ch = 0;
+    printf("Press q to kill all threads and terminate server\n");
+    // Wait for character "q" to be pressed
+    while (ch != 113) {
+        ch = getchar();
+    }
+    kill(0, SIGKILL);
+}
 
 void *thread_request() {
     int newfd = 0;
@@ -60,6 +71,13 @@ int main(int argc, char **argv) {
     char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
+
+    // Launch a fork to handle stdin and check if user wants to stop the program
+    pid_t keyboard_listener_pid = fork();
+    if (keyboard_listener_pid != 0) {
+        key_listener();
+        return 0;
+    }
 
     //Check the count of arguments
     if (argc < 3)
