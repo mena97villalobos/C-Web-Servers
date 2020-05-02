@@ -12,7 +12,7 @@ build:
     - cd serverS
     - make
     - cd build
-    - ./server-sequencial 8080 &
+    - ./server-secuencial 8080 &
     - cd ../..
     - cd clientSRC
     - make 
