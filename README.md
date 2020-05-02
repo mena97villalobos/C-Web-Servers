@@ -19,8 +19,8 @@ Contenidos del proyecto
 
 ```
 .
-├── clientSRC                     # Carpeta con archivos fuente del cliente
-│   ├── client.c                  # Código fuente del cliente
+├── cliente                     # Carpeta con archivos fuente del cliente
+│   ├── cliente.c                  # Código fuente del cliente
 │   └── makefile                  # makefile para el cliente
 │
 ├── commonSrc                     # Carpeta con los archivos fuente comunes para todos los proyectos
@@ -67,9 +67,9 @@ Cliente
 Compilar el Cliente
 -------------------
 
-1. Dirigirse a la capeta ./clientSRC
+1. Dirigirse a la capeta ./client
 2. Utilizar el comando make para compilar el cliente utilizando el make file incluido
-3. Los objetos resultantes se encuentran en la carpeta ./clientSRC/build
+3. Los objetos resultantes se encuentran en la carpeta ./client/build
 
 Utilizar el cliente
 -------------------
@@ -79,7 +79,7 @@ el archivo que se solicita, la cantidad de hilos que el cliente utilizará y la 
 
 Ejemplo de uso del cliente
 ```
-./client 127.0.0.1 8080 video.mp4 5 1
+./cliente 127.0.0.1 8080 video.mp4 5 1
 ```
 
 Versión Secuencial

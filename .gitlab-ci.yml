@@ -14,10 +14,12 @@ build:
     - cd build
     - ./server-secuencial 8080 &
     - cd ../..
-    - cd clientSRC
+    - cd cliente
     - make 
     - cd build
-    - ./client 127.0.0.1 8080 video.mp4 1 1
+    - ./cliente 127.0.0.1 8080 video.mp4 10 10
+
+
 
  
 
