@@ -33,8 +33,8 @@ make
 cd ..
 
 
-THREADS=5
-CICLOS=5
+THREADS=10
+CICLOS=10
 
 
 
