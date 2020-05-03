@@ -15,6 +15,12 @@ make
 cd ..
 
 
+
+cd serverPT
+make clean
+make
+cd ..
+
 cd cliente
 make clean
 make
@@ -67,6 +73,9 @@ cd detener/build
 cd ../..
 
 
+
+
+
 cd serverT/build
 ./serverT 8082 &
 cd ../..
@@ -84,6 +93,23 @@ cd ../..
 
 
 
+cd serverPT/build
+./server-predefine-threads 8083 10&
+cd ../..
+
+sleep 1
+
+cd cliente/build
+./cliente 127.0.0.1 8083 video.mp4 $THREADS $CICLOS
+cd ../..
+echo
+
+cd detener/build
+./detener 127.0.0.1 8083 
+cd ../..
+
+
+
 
 sleep 3
 
@@ -92,6 +118,7 @@ echo "Checking server alive"
 ps aux|grep server-secuencial
 ps aux|grep serverForks
 ps aux|grep serverT
+ps aux|grep server-predefine-threads
 
 
 

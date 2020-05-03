@@ -395,7 +395,6 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < n_threads; i++) { /* Wait until all threads are finished */
         pthread_join(all_tid[i], NULL);
-        printProgress((float) i / (float) n_threads);
     }
     printProgress(1.0);
     printf("\n");
