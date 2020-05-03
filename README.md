@@ -159,8 +159,16 @@ hilos que se crearán para manejar las solicitudes, la implementación inicia cr
 posteriormente se utiliza el proceso principal para escuchar peticiones al servidor, cada petición que llega al 
 servidor se asigna a uno de los threads pre creados, estos threads manejan la petición y responden al cliente pero no
 mueren, sino que permanecen a la espera de nuevas solicitudes. Para sincronizar los procesos se utiliza la librería
-Pthread, más específicamente los ```pthread_mutex_t``` y los ```pthread_cond_t``` para tener a los threads creados
+Pthread, más específicamente los ```pthread_mutex_t```para tener a los threads creados
 esperando por la señal del proceso principal indicando al thread que maneje la petición
+
+Se utiliza un mecanismo elegante para detener los hilos, cuando un hilo encuentra una llamada de terminacion 
+poner una bandera global de terminacion en true y apaga el server socket.
+
+El hilo principal se da cuenta y despierta a los hilos que al ver la bandera global de terminacion, tambien terminan
+
+El hilo principal espera que todos los hilos terminen antes de terminar el mismo.
+
 
 Compilar el Servidor Pre-Threaded
 -------------------------------
