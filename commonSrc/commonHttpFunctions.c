@@ -13,6 +13,8 @@ struct file_data {
     void *data;
 };
 
+int stopped=0;
+
 //Functions definition
 void errExit(const char *);
 
@@ -61,7 +63,7 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
     time_t t1 = time(NULL);
     int response_length = sprintf(
             response,
-            "%s\nDate: %sConnection: close\nContent-Length: %lu\nContent-Type: %s\n""\n",
+            "%s\nDate: %sConnection: close\nContent-Length: %lu\nContent-Type: %s\n\n",
             header,
             asctime(localtime(&t1)),
             content_length,
@@ -170,7 +172,7 @@ int handle_http_request(int fd) {
     }
     if (bytes_recvd > 0) {
         request[bytes_recvd] = '\0';
-        printf("%s\n", request);
+        //printf("%s\n", request);
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
@@ -182,6 +184,7 @@ int handle_http_request(int fd) {
         //Revisar detener
         if (strcmp(request_path, "/DETENER?PK=12345") == 0) {
             send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "Deteniendo", 10);
+            stopped = 1;
             return 1;
         }
         if (strcmp(request_type, "GET") == 0) {
