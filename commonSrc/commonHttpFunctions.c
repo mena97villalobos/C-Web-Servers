@@ -57,7 +57,7 @@ void divide_request_path(char **request_divided, char *request_path) {
 }
 
 int send_response(int fd, char *header, char *content_type, void *body, unsigned long content_length) {
-    char *response = calloc(content_length + 1024, sizeof(char));
+    char *response = calloc(content_length + 1024, sizeof (char));
     time_t t1 = time(NULL);
     int response_length = sprintf(
             response,
@@ -66,7 +66,7 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
             asctime(localtime(&t1)),
             content_length,
             content_type
-    );
+            );
     memcpy(response + response_length, body, content_length);
     ssize_t rv = send(fd, response, response_length + content_length, 0);
     free(response);
@@ -93,7 +93,7 @@ struct file_data *file_load(char *filename) {
 
     // Allocate that many bytes
     bytes_remaining = buf.st_size;
-    p = buffer = calloc(bytes_remaining + 1, sizeof(char));
+    p = buffer = calloc(bytes_remaining + 1, sizeof (char));
 
     if (fp == NULL || buffer == NULL) {
         return NULL;
@@ -137,14 +137,22 @@ void get_file(int fd, char *request_path) {
 
     sprintf(filepath, "%s%s", SERVER_ROOT, request_path);
     filedata = file_load(filepath);
+
     if (filedata == NULL) {
-        return;
+        send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "File not found", 14);
+    } else {
+        mime_type = mime_type_get(filepath);
+        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+        file_free(filedata);
     }
-    mime_type = mime_type_get(filepath);
-    send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
-    file_free(filedata);
 }
 
+/**
+ * Process request.
+ * Returns 0 to continue, 1 to stop
+ * @param fd
+ * @return  0 to continue, 1 to stop
+ */
 int handle_http_request(int fd) {
     const int request_buffer_size = 65536; // 64K
     char request[request_buffer_size];
@@ -158,7 +166,7 @@ int handle_http_request(int fd) {
 
     if (bytes_recvd < 0) {
         perror("recv");
-        return 1;
+        return 0;
     }
     if (bytes_recvd > 0) {
         request[bytes_recvd] = '\0';
@@ -166,21 +174,26 @@ int handle_http_request(int fd) {
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
-            exit(1);
+            return 0;
         }
         sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
         strcpy(request_path_copy, request_path);
         divide_request_path(request_path_div, request_path_copy);
-
+        //Revisar detener
+        if (strcmp(request_path, "/DETENER?PK=12345") == 0) {
+            send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "Deteniendo", 10);
+            return 1;
+        }
         if (strcmp(request_type, "GET") == 0) {
+            //Get file decides to stop
             get_file(fd, request_path);
             return 0;
         } else {
             // Assume that POST and other request types are ignored
             fprintf(stderr, "unknown request type \"%s\"\n", request_type);
-            return 1;
+            return 0;
         }
     } else {
-        return 1;
+        return 0;
     }
 }

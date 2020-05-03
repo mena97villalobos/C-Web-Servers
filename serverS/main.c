@@ -43,7 +43,10 @@ int main(int argc, char **argv) {
             continue;
         }
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
-        handle_http_request(newfd);
+        int result = handle_http_request(newfd);
         close(newfd);
+        if (result == 1){
+            exit(0);
+        }
     }
 }

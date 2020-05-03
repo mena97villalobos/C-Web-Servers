@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
     printProgress(1.0);
     printf("\n");
     printf(ANSI_COLOR_RED     "The results of test are:"     ANSI_COLOR_RESET "\n");
-    printf("%s %f mg/seg\n", "Average transfer speed:", calculate_average_speed(n_threads, n_cycles));
+    printf("%s %f MB/seg\n", "Average transfer speed:", calculate_average_speed(n_threads, n_cycles));
     printf("%s %f seg\n", "Average speed of request acceptance:", calculate_average_first_speed(n_threads, n_cycles));
     printf("%s %i\n", "Amount of transfers canceled:", error_request);
 

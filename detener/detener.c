@@ -13,18 +13,6 @@
 #define OUT_FILE "/dev/null"
 #define BUFFER_SIZE 1024
 
-//Bar
-#define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
-#define PBWIDTH 60
-
-//Colors
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
 
 const char *help_string = "Usage: detener <ip> <port>\n";
 
@@ -34,14 +22,6 @@ double *first_request_sec;
 int error_request = 0;
 int clientCounter = 0;
 
-//Struct for thread arguments
-struct arg_thread {
-    char *request;
-    char *port;
-    char *ip;
-    int n_cycles;
-    int id_thread;
-};
 
 //Function definitions
 int final_header(const char string[], int maxCheck);
@@ -50,24 +30,8 @@ void substring(const char [], char[], int, int);
 
 void errExit(const char *str);
 
-void make_request(char *request, char *port, char *ip, int id_location, int id_cycle);
+void make_request(char *request, char *port, char *ip);
 
-void *thread_request(void *arguments);
-
-void printProgress(double percentage);
-
-double calculate_average_speed(int n_threads, int n_cycles);
-
-double calculate_average_first_speed(int n_threads, int n_cycles);
-
-//C function to print de progress
-void printProgress(double percentage) {
-    int val = (int) (percentage * 100);
-    int lpad = (int) (percentage * PBWIDTH);
-    int rpad = PBWIDTH - lpad;
-    printf("\r%3d%% [%.*s%*s]", val, lpad, PBSTR, rpad, "");
-    fflush(stdout);
-}
 
 //C final header function implementation, return -1 if the standard is incorrect
 int final_header(const char string[], int maxCheck) {
@@ -105,7 +69,7 @@ void substring(const char s[], char sub[], int p, int l) {
 }
 
 // Code to create a request
-void make_request(char *request, char *port, char *ip, int id_location, int id_cycle) {
+void make_request(char *request, char *ip, char *port) {
     //Define initial variables
     struct addrinfo *result, hints;
     int srvfd;
@@ -144,9 +108,6 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     }
 
 
-    // Initial time first request
-    clock_t begin_first = clock();
-
     //Send http request
     write(srvfd, request, strlen(request));
 
@@ -157,10 +118,8 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     FILE *destFile = fopen(OUT_FILE, "wb");
 
     // Initial time
-    clock_t begin = clock();
     //Check a remove the initial header
     int bytesReceived = recv(srvfd, temp_buf, BUFFER_SIZE, 0);
-    clock_t end_first = clock();
     total_bytes += bytesReceived;
     if (bytesReceived < 0) {
         fprintf(stderr, "%s\n", "recv() failed");
@@ -186,127 +145,32 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
             return;
         }
     }
-
-    clock_t end = clock();
-    double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-    double time_spent_first = (double) (end_first - begin_first) / CLOCKS_PER_SEC;
-    double total_megaby = (double) total_bytes * 0.000001;
-    double megaby_sec = total_megaby / time_spent;
-    mgby_sec[id_location + id_cycle] = megaby_sec;
-    first_request_sec[id_location + id_cycle] = time_spent_first;
-
     //Close files and free memory
     fclose(destFile);
     close(srvfd);
 }
 
-void *thread_request(void *arguments) {
-    struct arg_thread args = *((struct arg_thread *) arguments);
-    for (int i = 0; i < args.n_cycles; ++i) {
-        clientCounter += 1;
-        printf("Clientes activados: %i\n", clientCounter);
-        make_request(args.request, args.port, args.ip, args.id_thread * args.n_cycles, i);
-    }
-
-    free(arguments);
-    return NULL;
-}
-
-double calculate_average_speed(int n_threads, int n_cycles) {
-    int total_ok = 0;
-    double total_speed = 0;
-    for (int i = 0; i < n_threads * n_cycles; ++i) {
-        if (mgby_sec[i] != '\0') {
-            total_speed += mgby_sec[i];
-            total_ok++;
-        }
-    }
-    if (total_ok == 0) {
-        return 0.0;
-    }
-    return total_speed / (double) total_ok;
-}
-
-double calculate_average_first_speed(int n_threads, int n_cycles) {
-    int total_ok = 0;
-    double total_speed = 0;
-    for (int i = 0; i < n_threads * n_cycles; ++i) {
-        if (first_request_sec[i] != '\0') {
-            total_speed += first_request_sec[i];
-            total_ok++;
-        }
-    }
-    if (total_ok == 0) {
-        return 0.0;
-    }
-    return total_speed / (double) total_ok;
-}
 
 int main(int argc, char **argv) {
-    //Define initial variables
-    char port[6] = "", ip[16] = "", filename[1000] = "";
 
     //Check the count of arguments
-    if (argc < 6)
+    if (argc != 3)
         errExit(help_string);
 
+    
+    char *ip = argv[1];
+    
+    char *port = argv[2];
     // Validate program arguments
-    if (!validate_ip(argv[1])) errExit("Invalid IP Address");
-    if (!validate_port(argv[2])) errExit("Invalid port");
-    if (!validate_number(argv[4])) errExit("Invalid n-threads");
-    if (!validate_number(argv[5])) errExit("Invalid n-cycles");
-
-    // Clean variables
-    memset(port, 0, 6);
-    memset(ip, 0, 16);
-    memset(filename, 0, 1000);
-
-    // Copy data to variables
-    strncpy(ip, argv[1], strlen(argv[1]));
-    strncpy(port, argv[2], strlen(argv[2]));
-    strncpy(filename, argv[3], strlen(argv[3]));
-
-    // Check if the memory has been successfully 
-    if (mgby_sec == NULL) {
-        printf("Memory (mgby_sec) not allocated.\n");
-        exit(0);
-    }
-
-    // Check if the memory has been successfully 
-    if (first_request_sec == NULL) {
-        printf("Memory (first_request_sec) not allocated.\n");
-        exit(0);
-    }
+    if (!validate_ip(ip)) errExit("Invalid IP Address");
+    if (!validate_port(port)) errExit("Invalid port");
 
     //Create http request
-    char request[54 + strlen(filename) + strlen(ip)];
-    sprintf(request, "GET /%s HTTP/1.1\nHost: %s\nUser-agent: simple-http client\n\n", filename, ip);
+    char request[98 + strlen(ip)];
+    sprintf(request, "GET /DETENER?PK=12345 HTTP/1.1\nHost: %s\nUser-agent: simple-http client\n\n", ip);
 
 
-    printf(ANSI_COLOR_RED     "The server test is starting!"     ANSI_COLOR_RESET "\n");
-
-        //--Arguments to send to thread
-        /*struct arg_thread *args_send = malloc(sizeof(*args_send));
-        struct arg_thread args;
-        if (args_send == NULL) {
-            fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
-            exit(EXIT_FAILURE);
-        }
-        args.request = request;
-        args.ip = ip;
-        args.port = port;
-        *args_send = args;
-        if (pthread_create(&all_tid[i], NULL, &thread_request, args_send) != 0) {
-            printf("Error in thread creation!\n");
-            free(args_send);
-        }*/
-    
-
-    printProgress(1.0);
-    printf("\n");
-    printf(ANSI_COLOR_RED     "The results of test are:"     ANSI_COLOR_RESET "\n");
-
-    free(mgby_sec);
-    free(first_request_sec);
+    printf("Trying to stop server at %s:%s",ip,port);
+    make_request(request,ip,port);
     return 0;
 }

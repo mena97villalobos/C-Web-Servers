@@ -206,3 +206,31 @@ Ejemplo de uso
 ```
 ./serverPredefineForks 8080 5
 ``` 
+
+
+
+```
+
+Detener el servidor
+=======
+Para detener el servidor ser hace una llamada como un cliente pero con una sintasix especial y un clave.
+http://localhost:8080/DETENER?PK=12345
+Hay un cliente especializado para denener el servido
+
+
+Compilar el cliente especializados para detener el servidor
+-------------------
+
+1. Dirigirse a la capeta ./detener
+2. Utilizar el comando make para compilar el cliente utilizando el make file incluido
+3. Los objetos resultantes se encuentran en la carpeta ./detener/build
+
+Utilizar el cliente especializados para detener el servidor
+-------------------
+
+El cliente  especializados para detener el servidor tiene como agumentos la máquina donde se está ejecutando el servidory el puerto del servidor, 
+
+Ejemplo de uso del cliente especializados para detener el servidor
+```
+./detener 127.0.0.1 8080
+```
