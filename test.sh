@@ -33,7 +33,7 @@ make
 cd ..
 
 
-THREADS=10
+THREADS=20
 CICLOS=10
 
 
@@ -94,7 +94,7 @@ cd ../..
 
 
 cd serverPT/build
-./server-predefine-threads 8083 10&
+./server-predefine-threads 8083 20 &
 cd ../..
 
 sleep 1
