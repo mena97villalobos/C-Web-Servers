@@ -123,7 +123,7 @@ void substring(const char s[], char sub[], int p, int l) {
 
 // Code to create a request
 
-void make_request(char *request, char *port, char *ip, int id_location, int id_cycle) {
+void make_request(char *request, char *port, char *ip, int thread_id, int id_cycle) {
     //Define initial variables
     struct addrinfo *result, hints;
     int srvfd;
@@ -224,10 +224,10 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     clock_t end = tick();
 
     //No mutex required as every thread uses its own mem
-    total_bytes[id_location] += total_request_bytes;
-    first_request_msec[id_location ] += (end_first - begin);
-    total_ms[id_location ] += (end - begin);
-    ++total_success[id_location];
+    total_bytes[thread_id] += total_request_bytes;
+    first_request_msec[thread_id ] += (end_first - begin);
+    total_ms[thread_id ] += (end - begin);
+    ++total_success[thread_id];
 
     //Close files and free memory
     fclose(destFile);
@@ -241,9 +241,9 @@ void *thread_request(void *arguments) {
     for (int i = 0; i < args.n_cycles; ++i) {
         sem_wait(&mutex);
         clientCounter += 1;
-        printf("Clientes activados: %i\n", clientCounter);
         sem_post(&mutex);
-        make_request(args.request, args.port, args.ip, args.id_thread * args.n_cycles, i);
+        printf("Total requests: %i (Thread Id: %d, Exec %d).\n", clientCounter,args.id_thread,i);
+        make_request(args.request, args.port, args.ip, args.id_thread , i);
     }
 
     free(arguments);
