@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
     sprintf(request, "GET /DETENER?PK=12345 HTTP/1.1\nHost: %s\nUser-agent: simple-http client\n\n", ip);
 
 
-    printf("Trying to stop server at %s:%s",ip,port);
+    printf("Trying to stop server at %s:%s.\n",ip,port);
     make_request(request,ip,port);
     return 0;
 }

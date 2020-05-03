@@ -11,7 +11,6 @@
 
 const char *help_string = "Usage: server <puerto>\n";
 
-
 int main(int argc, char **argv) {
     int newfd, pid;
     char port[6] = "";
@@ -40,17 +39,19 @@ int main(int argc, char **argv) {
     while (1) {
         socklen_t sin_size = sizeof their_addr;
         newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
-
+        if (newfd == -1) {
+            close(listenfd);
+            printf("Forked Server received stop request. Stopping.\n");
+            exit(0);
+        }
+        
         pid = fork();
         // Child process, handle request
         if (pid == 0) {
-            if (newfd == -1) {
-                perror("accept");
-            } else {
-                inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
-                handle_http_request(newfd);
-                shutdown(newfd, SHUT_RDWR);
-                close(newfd);
+            inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
+            handle_http_request(newfd);
+            if (server_stopped()){
+                shutdown(listenfd, SHUT_RDWR);
             }
             // Child process must leave the while statement to avoid creating another server
             exit(0);

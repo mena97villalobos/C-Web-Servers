@@ -13,7 +13,7 @@ const char *help_string = "Usage: server <puerto>\n";
 
 int main(int argc, char **argv) {
     int newfd;
-    char port[6]="";
+    char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
 
@@ -23,9 +23,9 @@ int main(int argc, char **argv) {
 
     // Validate program arguments
     if (!validate_port(argv[1])) errExit("Invalid port");
-    
+
     // Clean variables
-    memset(port, 0, 6);    
+    memset(port, 0, 6);
 
     // Copy data to variables
     strncpy(port, argv[1], strlen(argv[1]));
@@ -39,13 +39,15 @@ int main(int argc, char **argv) {
         socklen_t sin_size = sizeof their_addr;
         newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
         if (newfd == -1) {
-            perror("accept");
+            perror("Accept Invalid");
             continue;
         }
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
-        int result = handle_http_request(newfd);
-        close(newfd);
-        if (result == 1){
+        handle_http_request(newfd);
+
+        if (server_stopped()) {
+            shutdown(listenfd, SHUT_RDWR);
+            printf("Secuencial Server received stop request. Stopping.\n");
             exit(0);
         }
     }

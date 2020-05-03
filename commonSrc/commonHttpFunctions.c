@@ -5,6 +5,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include "../headers/mime.h"
+#include "../headers/commonHttpFunctions.h"
 
 #define SERVER_ROOT "../../serverroot"
 
@@ -13,24 +14,8 @@ struct file_data {
     void *data;
 };
 
-int stopped=0;
+int server_stop=0;
 
-//Functions definition
-void errExit(const char *);
-
-char *find_start_of_body(char *);
-
-void divide_request_path(char **, char *);
-
-int send_response(int, char *, char *, void *, unsigned long);
-
-struct file_data *file_load(char *);
-
-void file_free(struct file_data *);
-
-void get_file(int, char *);
-
-int handle_http_request(int);
 
 char *find_start_of_body(char *header) {
     char *p;
@@ -77,7 +62,9 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
     }
     return (int) rv;
 }
-
+int server_stopped(void){
+    return server_stop;
+}
 struct file_data *file_load(char *filename) {
     char *buffer, *p;
     struct stat buf;
@@ -184,7 +171,7 @@ int handle_http_request(int fd) {
         //Revisar detener
         if (strcmp(request_path, "/DETENER?PK=12345") == 0) {
             send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "Deteniendo", 10);
-            stopped = 1;
+            server_stop = 1;
             return 1;
         }
         if (strcmp(request_type, "GET") == 0) {
@@ -199,4 +186,5 @@ int handle_http_request(int fd) {
     } else {
         return 0;
     }
+    shutdown(fd, SHUT_RDWR);
 }

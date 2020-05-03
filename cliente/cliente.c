@@ -26,7 +26,7 @@
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
-const char *help_string = "Usage: client <ip> <port> <file_name> <n-thread> <n-cycles>\n";
+const char *help_string = "Usage: client <ip> <port> <file_name> <n-thread> <n-cycles> [v]\n";
 
 //Test variables
 int *total_success;
@@ -41,6 +41,8 @@ int clientCounter = 0;
 sem_t mutex;
 
 //Struct for thread arguments
+
+int verbose = 0;
 
 struct arg_thread {
     char *request;
@@ -148,7 +150,9 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     srvfd = socket(result->ai_family, SOCK_STREAM, 0);
 
     if (srvfd < 0) {
-        fprintf(stderr, "%s\n", "socket()");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Error socket()\n");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
@@ -156,7 +160,9 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     }
 
     if (connect(srvfd, result->ai_addr, result->ai_addrlen) == -1) {
-        fprintf(stderr, "%s\n", "connect");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Error on connect\n");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
@@ -187,7 +193,9 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     int header_final_location = final_header(buf, bytesReceived);
     total_request_bytes = header_final_location;
     if (header_final_location == -1) {
-        fprintf(stderr, "%s\n", "Error http format in the server");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Error http format in the server");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
@@ -196,7 +204,9 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     buf[header_final_location + 1] = '\0';
     char *contentLengthPointer = strstr(buf, "Content-Length: ");
     if (contentLengthPointer == 0) {
-        fprintf(stderr, "%s\n", "Content-Lenght not found.");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Content-Lenght not found.");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
@@ -212,7 +222,9 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     while (contentLength != 0) {
         bytesReceived = recv(srvfd, buf, BUFFER_SIZE, 0);
         if (bytesReceived < 0) {
-            fprintf(stderr, "%s\n", "recv() failed");
+            if (verbose) {
+                fprintf(stderr, "%s\n", "recv() failed");
+            }
             sem_wait(&mutex);
             error_request++;
             sem_post(&mutex);
@@ -242,8 +254,10 @@ void *thread_request(void *arguments) {
         sem_wait(&mutex);
         clientCounter += 1;
         sem_post(&mutex);
-        printf("Total requests: %i (Thread Id: %d, Exec %d).\n", clientCounter,args.id_thread,i);
-        make_request(args.request, args.port, args.ip, args.id_thread , i);
+        if (verbose) {
+            printf("Total requests: %i (Thread Id: %d, Exec %d).\n", clientCounter, args.id_thread, i);
+        }
+        make_request(args.request, args.port, args.ip, args.id_thread, i);
     }
 
     free(arguments);
@@ -295,7 +309,7 @@ int main(int argc, char **argv) {
     sem_init(&mutex, 0, 1);
 
     //Check the count of arguments
-    if (argc < 6)
+    if (argc < 6 || argc > 7)
         errExit(help_string);
 
     // Validate program arguments
@@ -304,6 +318,14 @@ int main(int argc, char **argv) {
     if (!validate_number(argv[4])) errExit("Invalid n-threads");
     if (!validate_number(argv[5])) errExit("Invalid n-cycles");
 
+    if (argc == 7) {
+        if (strcmp(argv[6], "v") == 0) {
+            printf("Verbose enabled\n");
+            verbose = 1;
+        } else {
+            errExit(help_string);
+        }
+    }
     // Clean variables
     memset(port, 0, 6);
     memset(ip, 0, 16);
@@ -390,7 +412,7 @@ int main(int argc, char **argv) {
         printf("Average transfer speed: %.2f MB/seg\n", mb / (total_msec / 1000.0));
         printf("Average duration : %.2f ms\n", total_msec / (double) success);
         printf("Average speed of request acceptance:  %.2f ms\n",
-                calculate_total_acceptance_msec(n_threads)/(double)success);
+                calculate_total_acceptance_msec(n_threads) / (double) success);
     } else {
         printf("Not stats as not a single request succeed.\n");
     }
