@@ -20,6 +20,7 @@ void *thread_request(void *arguments) {
         handle_http_request(newfd);
     }
     free(arguments);
+    pthread_exit(NULL);
     return NULL;
 }
 
@@ -64,12 +65,18 @@ int main(int argc, char **argv) {
             }
             *arg_thread = newfd;
             //---
+            int err = pthread_create(&var_thread, NULL, &thread_request, arg_thread);
 
-            if (pthread_create(&var_thread, NULL, &thread_request, arg_thread) != 0) {
-                printf("Error in thread creation!\n");
+            if (err!= 0) {
+                printf("Error in thread creation!, error: %s\n",strerror(err));
                 close(newfd);
                 continue;
             }
+            err = pthread_detach(var_thread);
+            if (err!= 0) {
+                printf("Error in thread detach!, error: %s\n",strerror(err));
+            }
+            pthread_detach(var_thread);
             inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
         }
     }

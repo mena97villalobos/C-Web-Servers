@@ -252,6 +252,7 @@ void *thread_request(void *arguments) {
     }
 
     free(arguments);
+    pthread_exit(NULL);
     return NULL;
 }
 
