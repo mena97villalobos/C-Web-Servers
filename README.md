@@ -82,6 +82,13 @@ Ejemplo de uso del cliente
 ./cliente 127.0.0.1 8080 video.mp4 5 1
 ```
 
+Opcionalmente el cliente tiene el argumento ```v```, este argumento muestra los request realizados (estilo verbose) 
+por el cliente
+
+```
+./cliente 127.0.0.1 8080 video.mp4 5 1 v
+```
+
 Versión Secuencial
 ==================
 
@@ -215,10 +222,6 @@ Ejemplo de uso
 ./serverPredefineForks 8080 5
 ``` 
 
-
-
-```
-
 Detener el servidor
 =======
 Para detener el servidor ser hace una llamada como un cliente pero con una sintasix especial y un clave.
@@ -236,7 +239,8 @@ Compilar el cliente especializados para detener el servidor
 Utilizar el cliente especializados para detener el servidor
 -------------------
 
-El cliente  especializados para detener el servidor tiene como agumentos la máquina donde se está ejecutando el servidory el puerto del servidor, 
+El cliente  especializados para detener el servidor tiene como agumentos la máquina donde se está ejecutando el servidor
+y el puerto del servidor, 
 
 Ejemplo de uso del cliente especializados para detener el servidor
 ```

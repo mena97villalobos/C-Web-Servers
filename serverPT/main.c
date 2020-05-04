@@ -37,9 +37,7 @@ void *thread_request() {
             printf("Stopping thread");
             break;
         }
-        
 
-        
         handle_http_request(newfd);
         shutdown(newfd, SHUT_RDWR);
         if (server_stopped()) {
@@ -93,7 +91,6 @@ int main(int argc, char **argv) {
         global_newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
         if (global_newfd == -1) {
             if (server_stopped()) {
-                printf("Pre Threaded Server received stop request. Stopping threads.\n");
                 for (int i = 0; i < n_threads; i++) {
                     pthread_mutex_unlock(&new_req);
                     pthread_mutex_lock(&req_consumed);
@@ -108,13 +105,9 @@ int main(int argc, char **argv) {
         //--Warn threads of a new customer
         pthread_mutex_unlock(&new_req);
         pthread_mutex_lock(&req_consumed);
-
     }
 
-    printf("Waiting for threads.\n");
     for (int i = 0; i < n_threads; i++) { /* Wait until all threads are finished */
         pthread_join(all_tid[i], NULL);
     }
-
-    printf("All threads stopped.\n");
 }

@@ -99,7 +99,13 @@ void key_listener() {
     while (ch != 113) {
         ch = getchar();
     }
-    kill(0, SIGKILL);
+    kill(0, SIGUSR1);
+}
+
+void signal_handler(int signal) {
+    if (signal == SIGUSR1) {
+        _exit(0);
+    }
 }
 
 int main(int argc, char **argv) {
@@ -116,6 +122,8 @@ int main(int argc, char **argv) {
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
     pid_t pid;
+
+    signal(SIGUSR1, signal_handler);
 
     // Launch a fork to handle stdin and check if user wants to stop the program
     pid_t keyboard_listener_pid = fork();

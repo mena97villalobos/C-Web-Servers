@@ -14,7 +14,7 @@ struct file_data {
     void *data;
 };
 
-int server_stop=0;
+int server_stop = 0;
 
 
 char *find_start_of_body(char *header) {
@@ -44,7 +44,7 @@ void divide_request_path(char **request_divided, char *request_path) {
 }
 
 int send_response(int fd, char *header, char *content_type, void *body, unsigned long content_length) {
-    char *response = calloc(content_length + 1024, sizeof (char));
+    char *response = calloc(content_length + 1024, sizeof(char));
     time_t t1 = time(NULL);
     int response_length = sprintf(
             response,
@@ -53,7 +53,7 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
             asctime(localtime(&t1)),
             content_length,
             content_type
-            );
+    );
     memcpy(response + response_length, body, content_length);
     ssize_t rv = send(fd, response, response_length + content_length, 0);
     free(response);
@@ -62,9 +62,11 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
     }
     return (int) rv;
 }
-int server_stopped(void){
+
+int server_stopped(void) {
     return server_stop;
 }
+
 struct file_data *file_load(char *filename) {
     char *buffer, *p;
     struct stat buf;
@@ -82,7 +84,7 @@ struct file_data *file_load(char *filename) {
 
     // Allocate that many bytes
     bytes_remaining = buf.st_size;
-    p = buffer = calloc(bytes_remaining + 1, sizeof (char));
+    p = buffer = calloc(bytes_remaining + 1, sizeof(char));
 
     if (fp == NULL || buffer == NULL) {
         return NULL;
@@ -168,7 +170,7 @@ int handle_http_request(int fd) {
         sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
         strcpy(request_path_copy, request_path);
         divide_request_path(request_path_div, request_path_copy);
-        //Revisar detener
+        // Check for signal to stop server
         if (strcmp(request_path, "/DETENER?PK=12345") == 0) {
             send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "Deteniendo", 10);
             server_stop = 1;
