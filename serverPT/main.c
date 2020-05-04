@@ -20,54 +20,56 @@ pthread_mutex_t req_consumed; //Semaphore to tell main thread to continue
 int listenfd;
 int global_newfd = 0;
 
-void initSemaphore(pthread_mutex_t *semaphore) {
-    if (pthread_mutex_init(semaphore, NULL) != 0) {
-        printf("Semaphore initialization failed\n");
-        exit(1);
-    }
-}
-
-void *thread_request() {
-    int newfd = 0;
-    while (1) {
-        pthread_mutex_lock(&new_req);
-        newfd = global_newfd;
-        pthread_mutex_unlock(&req_consumed);
-        if (server_stopped()) {
-            printf("Stopping thread");
-            break;
-        }
-
-        handle_http_request(newfd);
-        shutdown(newfd, SHUT_RDWR);
-        if (server_stopped()) {
-            shutdown(listenfd, SHUT_RDWR);
-        }
-    }
-    return NULL;
-}
-
 void key_listener() {
     int ch = 0;
-    printf("Press q to kill all processes and terminate server\n");
+    printf("Press q to kill all threads and terminate server\n");
     // Wait for character "q" to be pressed
     while (ch != 113) {
         ch = getchar();
     }
-    kill(0, SIGUSR1);
+    kill(0, SIGKILL);
 }
 
-void signal_handler(int signal) {
-    if (signal == SIGUSR1) {
-        _exit(0);
+void *thread_request() {
+    int newfd = 0;
+    bool work = false;
+
+    while (1) {
+        work = false;
+
+        pthread_mutex_lock(&mut_allt);
+        if (is_used == true) {
+            newfd = global_newfd;
+            is_used = false;
+            work = true;
+            pthread_cond_broadcast(&con_server);
+        } else {
+            pthread_cond_wait(&con_allt, &mut_allt);
+            if (is_used == true) {
+                newfd = global_newfd;
+                is_used = false;
+                work = true;
+                pthread_cond_broadcast(&con_server);
+            }
+        }
+        pthread_mutex_unlock(&mut_allt);
+
+        if (work == true) {
+            if (newfd == -1) {
+                perror("accept");
+                continue;
+            }
+            handle_http_request(newfd);
+            close(newfd);
+        }
     }
 }
 
 int main(int argc, char **argv) {
-    int n_threads;
+    int newfd, n_threads;
     char port[6] = "";
     struct sockaddr_storage their_addr;
-
+    char s[INET6_ADDRSTRLEN];
     signal(SIGUSR1, signal_handler);
 
     // Launch a fork to handle stdin and check if user wants to stop the program
@@ -92,12 +94,6 @@ int main(int argc, char **argv) {
     strncpy(port, argv[1], strlen(argv[1]));
     n_threads = atoi(argv[2]);
 
-
-    initSemaphore(&new_req);
-    initSemaphore(&req_consumed);
-    pthread_mutex_lock(&new_req);
-    pthread_mutex_lock(&req_consumed);
-
     pthread_t all_tid[n_threads];
 
     for (int i = 0; i < n_threads; i++) {
@@ -106,33 +102,26 @@ int main(int argc, char **argv) {
         }
     }
 
-    listenfd = get_listener_socket(port);
+    int listenfd = get_listener_socket(port);
     if (listenfd < 0) {
-        fprintf(stderr, "Webserver: fatal error getting listening socket\n");
+        fprintf(stderr, "webserver: fatal error getting listening socket\n");
         exit(1);
     }
     while (1) {
         socklen_t sin_size = sizeof their_addr;
-        global_newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
-        if (global_newfd == -1) {
-            if (server_stopped()) {
-                for (int i = 0; i < n_threads; i++) {
-                    pthread_mutex_unlock(&new_req);
-                    pthread_mutex_lock(&req_consumed);
-                }
-                break;
-            } else {
-                perror("Accept Invalid.");
-                continue;
-            }
-        }
-
+        newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
         //--Warn threads of a new customer
-        pthread_mutex_unlock(&new_req);
-        pthread_mutex_lock(&req_consumed);
-    }
-
-    for (int i = 0; i < n_threads; i++) { /* Wait until all threads are finished */
-        pthread_join(all_tid[i], NULL);
+        pthread_mutex_lock(&mut_allt);
+        is_used = true;
+        global_newfd = newfd;
+        pthread_cond_broadcast(&con_allt);
+        pthread_mutex_unlock(&mut_allt);
+        //--Wait for the client to be taken by someone
+        pthread_mutex_lock(&mut_allt);
+        if (is_used == true) {
+            pthread_cond_wait(&con_server, &mut_allt);
+        }
+        pthread_mutex_unlock(&mut_allt);
+        inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
     }
 }

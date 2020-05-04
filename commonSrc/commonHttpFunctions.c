@@ -14,8 +14,6 @@ struct file_data {
     void *data;
 };
 
-volatile int server_stop = 0;
-
 char *find_start_of_body(char *header) {
     char *p;
     p = strstr(header, "\n\n");
@@ -60,10 +58,6 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
         perror("send");
     }
     return (int) rv;
-}
-
-int server_stopped(void) {
-    return server_stop;
 }
 
 struct file_data *file_load(char *filename) {
@@ -137,12 +131,6 @@ void get_file(int fd, char *request_path) {
     }
 }
 
-/**
- * Process request.
- * Returns 0 to continue, 1 to stop
- * @param fd
- * @return  0 to continue, 1 to stop
- */
 int handle_http_request(int fd) {
     const int request_buffer_size = 65536; // 64K
     char request[request_buffer_size];
@@ -156,35 +144,27 @@ int handle_http_request(int fd) {
 
     if (bytes_recvd < 0) {
         perror("recv");
-        return 0;
+        return 1;
     }
     if (bytes_recvd > 0) {
         request[bytes_recvd] = '\0';
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
-            return 0;
+            exit(1);
         }
         sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
         strcpy(request_path_copy, request_path);
         divide_request_path(request_path_div, request_path_copy);
-        // Check for signal to stop server
-        if (strcmp(request_path, "/DETENER?PK=12345") == 0) {
-            send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "Deteniendo", 10);
-            server_stop = 1;
-            return 0;
-        }
         if (strcmp(request_type, "GET") == 0) {
-            //Get file decides to stop
             get_file(fd, request_path);
             return 0;
         } else {
             // Assume that POST and other request types are ignored
             fprintf(stderr, "unknown request type \"%s\"\n", request_type);
-            return 0;
+            return 1;
         }
     } else {
-        return 0;
+        return 1;
     }
-    shutdown(fd, SHUT_RDWR);
 }
