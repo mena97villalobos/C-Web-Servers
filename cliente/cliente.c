@@ -22,6 +22,9 @@
 
 const char *help_string = "Usage: client <ip> <port> <file_name> <n-thread> <n-cycles> [v]\n";
 
+//Global variables
+FILE *destFile;
+
 //Test variables
 int *total_success;
 long *total_bytes;
@@ -34,6 +37,7 @@ int executedThreads = 0;
 int error_request = 0;
 int clientCounter = 0;
 sem_t mutex;
+sem_t mutex_write;
 
 //Struct for thread arguments
 
@@ -158,10 +162,7 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
 
     // Turn down socket
     shutdown(srvfd, SHUT_WR);
-
-    // Open file destination exit
-    FILE *destFile = fopen(OUT_FILE, "wb");
-
+    
     // Initial time
     clock_t begin = tick();
     //Check a remove the initial header
@@ -228,10 +229,8 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     ++total_success[thread_id];
 
     //Close files and free memory
-    fclose(destFile);
     close(srvfd);
-
-
+    freeaddrinfo(result); 
 }
 
 void *thread_request(void *arguments) {
@@ -299,6 +298,7 @@ int main(int argc, char **argv) {
     int n_threads, n_cycles;
     char port[6] = "", ip[16] = "", filename[1000] = "";
     sem_init(&mutex, 0, 1);
+    sem_init(&mutex_write, 0, 1);
 
     //Check the count of arguments
     if (argc < 6 || argc > 7)
@@ -337,6 +337,14 @@ int main(int argc, char **argv) {
     total_success = (int *) calloc(n_threads, sizeof(int));
 
     totalThreads = n_threads * n_cycles;
+
+
+    // Open file destination exit
+    destFile = fopen(OUT_FILE, "wb");
+    if(destFile==NULL){
+    	printf("Error to get handle to exit file.\n");
+        exit(0);
+    }
 
     // Check if the memory has been successfully 
     if (total_bytes == NULL) {
@@ -416,5 +424,7 @@ int main(int argc, char **argv) {
     free(total_success);
     free(total_ms);
     sem_destroy(&mutex);
+    sem_destroy(&mutex_write);
+    fclose(destFile);
     return 0;
 }
