@@ -50,9 +50,6 @@ int main(int argc, char **argv) {
         if (pid == 0) {
             inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
             handle_http_request(newfd);
-            if (server_stopped()){
-                shutdown(listenfd, SHUT_RDWR);
-            }
             // Child process must leave the while statement to avoid creating another server
             exit(0);
         }

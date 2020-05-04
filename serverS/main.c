@@ -44,11 +44,5 @@ int main(int argc, char **argv) {
         }
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
         handle_http_request(newfd);
-
-        if (server_stopped()) {
-            shutdown(listenfd, SHUT_RDWR);
-            printf("Secuencial Server received stop request. Stopping.\n");
-            exit(0);
-        }
     }
 }

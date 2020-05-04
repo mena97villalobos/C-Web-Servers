@@ -15,9 +15,10 @@
 const char *help_string = "Usage: server <puerto> <max-threads>\n";
 
 //Variables to synchronize all threads
-pthread_mutex_t new_req; //Semaphore to tell threads new request
-pthread_mutex_t req_consumed; //Semaphore to tell main thread to continue
-int listenfd;
+pthread_mutex_t mut_allt = PTHREAD_MUTEX_INITIALIZER; //Semaphore to stop all threads
+pthread_cond_t con_allt = PTHREAD_COND_INITIALIZER; //Condition to broadcast all threads
+pthread_cond_t con_server = PTHREAD_COND_INITIALIZER; //Condition to broadcast server
+bool is_used = false;
 int global_newfd = 0;
 
 void key_listener() {
@@ -28,6 +29,12 @@ void key_listener() {
         ch = getchar();
     }
     kill(0, SIGKILL);
+}
+
+void signal_handler(int signal) {
+    if (signal == SIGUSR1) {
+        _exit(0);
+    }
 }
 
 void *thread_request() {

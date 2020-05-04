@@ -45,7 +45,7 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
     time_t t1 = time(NULL);
     int response_length = sprintf(
             response,
-            "%s\nDate: %sConnection: close\nContent-Length: %lu\nContent-Type: %s\n\n",
+            "%s\nDate: %sConnection: close\nContent-Length: %lu\nContent-Type: %s\n""\n",
             header,
             asctime(localtime(&t1)),
             content_length,

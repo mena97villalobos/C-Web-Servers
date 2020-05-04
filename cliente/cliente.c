@@ -4,7 +4,6 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include "argValidator.h"
 #include <pthread.h>
 #include <semaphore.h>
@@ -19,11 +18,6 @@
 
 //Colors
 #define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 const char *help_string = "Usage: client <ip> <port> <file_name> <n-thread> <n-cycles> [v]\n";
@@ -34,15 +28,16 @@ long *total_bytes;
 long *total_ms;
 long *first_request_msec;
 
+int totalThreads = 0;
+int executedThreads = 0;
 
-int success_request = 0;
 int error_request = 0;
 int clientCounter = 0;
 sem_t mutex;
 
 //Struct for thread arguments
 
-int verbose = 0;
+volatile int verbose = 0;
 
 struct arg_thread {
     char *request;
@@ -55,11 +50,9 @@ struct arg_thread {
 //Function definitions
 int final_header(const char string[], int maxCheck);
 
-void substring(const char [], char[], int, int);
-
 void errExit(const char *str);
 
-void make_request(char *request, char *port, char *ip, int id_location, int id_cycle);
+void make_request(char *request, char *port, char *ip, int thread_id, int id_cycle);
 
 void *thread_request(void *arguments);
 
@@ -108,19 +101,10 @@ int final_header(const char string[], int maxCheck) {
 // C error exit function implementation
 
 void errExit(const char *str) {
-    fprintf(stderr, "%s", str);
-    exit(-1);
-}
-
-// C substring function implementation
-
-void substring(const char s[], char sub[], int p, int l) {
-    int c = 0;
-    while (c < l) {
-        sub[c] = s[p + c - 1];
-        c++;
+    if (verbose) {
+        fprintf(stderr, "%s", str);
     }
-    sub[c] = '\0';
+    exit(-1);
 }
 
 // Code to create a request
@@ -135,14 +119,16 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     memset(buf, 0, BUFFER_SIZE);
 
     // Clean variables
-    memset(&hints, 0, sizeof (struct addrinfo));
+    memset(&hints, 0, sizeof(struct addrinfo));
 
     // Define internet protocol
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
     if (0 != getaddrinfo(ip, port, &hints, &result)) {
-        fprintf(stderr, "%s\n", "getaddrinfo");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "getaddrinfo");
+        }
         return;
     }
 
@@ -184,7 +170,9 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
     int bytesReceived = recv(srvfd, buf, BUFFER_SIZE, 0);
     clock_t end_first = tick();
     if (bytesReceived < 0) {
-        fprintf(stderr, "%s\n", "recv() failed");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "recv() failed");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
@@ -237,8 +225,8 @@ void make_request(char *request, char *port, char *ip, int thread_id, int id_cyc
 
     //No mutex required as every thread uses its own mem
     total_bytes[thread_id] += total_request_bytes;
-    first_request_msec[thread_id ] += (end_first - begin);
-    total_ms[thread_id ] += (end - begin);
+    first_request_msec[thread_id] += (end_first - begin);
+    total_ms[thread_id] += (end - begin);
     ++total_success[thread_id];
 
     //Close files and free memory
@@ -258,6 +246,11 @@ void *thread_request(void *arguments) {
             printf("Total requests: %i (Thread Id: %d, Exec %d).\n", clientCounter, args.id_thread, i);
         }
         make_request(args.request, args.port, args.ip, args.id_thread, i);
+
+        sem_wait(&mutex);
+        executedThreads += 1;
+        printProgress((double) executedThreads / (double) totalThreads);
+        sem_post(&mutex);
     }
 
     free(arguments);
@@ -269,7 +262,7 @@ double calculate_transfered_MB(int n_threads) {
     for (int i = 0; i < n_threads; ++i) {
         total_MB += total_bytes[i];
     }
-    //Megabites no mebibites
+    // Conver megabytes to Megabytes
     return total_MB / 1000000.0;
 }
 
@@ -339,10 +332,12 @@ int main(int argc, char **argv) {
     n_cycles = atoi(argv[5]);
 
     //Define global variables
-    total_bytes = (long *) calloc(n_threads, sizeof (long));
-    total_ms = (long *) calloc(n_threads, sizeof (long));
-    first_request_msec = (long *) calloc(n_threads, sizeof (long));
-    total_success = (int *) calloc(n_threads, sizeof (int));
+    total_bytes = (long *) calloc(n_threads, sizeof(long));
+    total_ms = (long *) calloc(n_threads, sizeof(long));
+    first_request_msec = (long *) calloc(n_threads, sizeof(long));
+    total_success = (int *) calloc(n_threads, sizeof(int));
+
+    totalThreads = n_threads * n_cycles;
 
     // Check if the memory has been successfully 
     if (total_bytes == NULL) {
@@ -375,7 +370,7 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < n_threads; i++) {
         //--Arguments to send to thread
-        struct arg_thread *args_send = malloc(sizeof (*args_send));
+        struct arg_thread *args_send = malloc(sizeof(*args_send));
         struct arg_thread args;
         if (args_send == NULL) {
             fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
@@ -411,7 +406,7 @@ int main(int argc, char **argv) {
         printf("Average transfer speed: %.2f MB/seg\n", mb / (total_msec / 1000.0));
         printf("Average duration : %.2f ms\n", total_msec / (double) success);
         printf("Average speed of request acceptance:  %.2f ms\n",
-                calculate_total_acceptance_msec(n_threads) / (double) success);
+               calculate_total_acceptance_msec(n_threads) / (double) success);
     } else {
         printf("Not stats as not a single request succeed.\n");
     }

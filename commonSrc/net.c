@@ -6,7 +6,7 @@
 #include <netdb.h>
 #include "../headers/net.h"
 
-#define BACKLOG 100
+#define BACKLOG 200
 
 void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {

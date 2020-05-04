@@ -11,7 +11,6 @@
 #include <pthread.h>
 
 const char *help_string = "Usage: server <puerto>\n";
-int listenfd;
 
 void *thread_request(void *arguments) {
     int newfd = *((int *) arguments);
@@ -22,10 +21,6 @@ void *thread_request(void *arguments) {
         close(newfd);
     }
     free(arguments);
-    
-    if (server_stopped()){
-         shutdown(listenfd, SHUT_RDWR);
-    }
     return NULL;
 }
 
@@ -48,7 +43,7 @@ int main(int argc, char **argv) {
     // Copy data to variables
     strncpy(port, argv[1], strlen(argv[1]));
 
-     listenfd = get_listener_socket(port);
+    int listenfd = get_listener_socket(port);
     if (listenfd < 0) {
         fprintf(stderr, "webserver: fatal error getting listening socket\n");
         exit(1);
@@ -59,28 +54,22 @@ int main(int argc, char **argv) {
         newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
 
         if (newfd == -1) {
-            if (server_stopped()) {
-                shutdown(listenfd, SHUT_RDWR);
-                printf("Threaded Server received stop request. Stopping.\n");
-                exit(0);
-            }else {
-                perror("Accept Invalid");
-                continue;
+            fprintf(stderr, "accept error");
+        } else {
+
+            //--Arguments to send to thread
+            int *arg_thread = malloc(sizeof(*arg_thread));
+            if (arg_thread == NULL) {
+                fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
+                exit(EXIT_FAILURE);
             }
-        }
-        //--Arguments to send to thread
-        int *arg_thread = malloc(sizeof (*arg_thread));
-        if (arg_thread == NULL) {
-            fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
-            exit(EXIT_FAILURE);
-        }
-        *arg_thread = newfd;
-        //--- 
+            *arg_thread = newfd;
+            //---
 
-        if (pthread_create(&var_thread, NULL, &thread_request, arg_thread) != 0) {
-            printf("Error in thread creation!\n");
+            if (pthread_create(&var_thread, NULL, &thread_request, arg_thread) != 0) {
+                printf("Error in thread creation!\n");
+            }
+            inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
         }
-        inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
-
     }
 }
