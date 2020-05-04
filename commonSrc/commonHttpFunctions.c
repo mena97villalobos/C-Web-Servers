@@ -14,8 +14,7 @@ struct file_data {
     void *data;
 };
 
-int server_stop = 0;
-
+volatile int server_stop = 0;
 
 char *find_start_of_body(char *header) {
     char *p;
@@ -161,7 +160,6 @@ int handle_http_request(int fd) {
     }
     if (bytes_recvd > 0) {
         request[bytes_recvd] = '\0';
-        //printf("%s\n", request);
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
@@ -174,7 +172,7 @@ int handle_http_request(int fd) {
         if (strcmp(request_path, "/DETENER?PK=12345") == 0) {
             send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "Deteniendo", 10);
             server_stop = 1;
-            return 1;
+            return 0;
         }
         if (strcmp(request_type, "GET") == 0) {
             //Get file decides to stop

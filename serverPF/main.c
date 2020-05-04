@@ -169,13 +169,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < n_threads; i++) {
         pid = fork();
         if (pid == 0) {
-            child_process(
-                    mut_allt,
-                    con_allt,
-                    con_server,
-                    is_used,
-                    listenfd
-            );
+            child_process(mut_allt, con_allt, con_server, is_used, listenfd);
             return 0;
         }
     }

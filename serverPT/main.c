@@ -47,10 +47,35 @@ void *thread_request() {
     return NULL;
 }
 
+void key_listener() {
+    int ch = 0;
+    printf("Press q to kill all processes and terminate server\n");
+    // Wait for character "q" to be pressed
+    while (ch != 113) {
+        ch = getchar();
+    }
+    kill(0, SIGUSR1);
+}
+
+void signal_handler(int signal) {
+    if (signal == SIGUSR1) {
+        _exit(0);
+    }
+}
+
 int main(int argc, char **argv) {
     int n_threads;
     char port[6] = "";
     struct sockaddr_storage their_addr;
+
+    signal(SIGUSR1, signal_handler);
+
+    // Launch a fork to handle stdin and check if user wants to stop the program
+    pid_t keyboard_listener_pid = fork();
+    if (keyboard_listener_pid != 0) {
+        key_listener();
+        return 0;
+    }
 
     //Check the count of arguments
     if (argc < 3)
