@@ -101,9 +101,7 @@ int final_header(const char string[], int maxCheck) {
 // C error exit function implementation
 
 void errExit(const char *str) {
-    if (verbose) {
-        fprintf(stderr, "%s", str);
-    }
+    fprintf(stderr, "%s", str);
     exit(-1);
 }
 

@@ -67,7 +67,6 @@ void *thread_request() {
                 continue;
             }
             handle_http_request(newfd);
-            close(newfd);
         }
     }
 }

@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include "../headers/mime.h"
 #include "../headers/commonHttpFunctions.h"
+#include <unistd.h> // for close
 
 #define SERVER_ROOT "../../serverroot"
 
@@ -144,6 +145,7 @@ int handle_http_request(int fd) {
 
     if (bytes_recvd < 0) {
         perror("recv");
+        close(fd);
         return 1;
     }
     if (bytes_recvd > 0) {
@@ -151,6 +153,7 @@ int handle_http_request(int fd) {
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
+            close(fd);
             exit(1);
         }
         sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
@@ -158,13 +161,18 @@ int handle_http_request(int fd) {
         divide_request_path(request_path_div, request_path_copy);
         if (strcmp(request_type, "GET") == 0) {
             get_file(fd, request_path);
+            close(fd);
             return 0;
         } else {
             // Assume that POST and other request types are ignored
             fprintf(stderr, "unknown request type \"%s\"\n", request_type);
+            close(fd);
             return 1;
         }
     } else {
+        close(fd);
         return 1;
     }
+
+    close(fd);
 }

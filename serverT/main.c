@@ -18,7 +18,6 @@ void *thread_request(void *arguments) {
         perror("accept");
     } else {
         handle_http_request(newfd);
-        close(newfd);
     }
     free(arguments);
     return NULL;
@@ -68,6 +67,8 @@ int main(int argc, char **argv) {
 
             if (pthread_create(&var_thread, NULL, &thread_request, arg_thread) != 0) {
                 printf("Error in thread creation!\n");
+                close(newfd);
+                continue;
             }
             inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
         }
