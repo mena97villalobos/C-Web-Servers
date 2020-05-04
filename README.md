@@ -169,14 +169,6 @@ mueren, sino que permanecen a la espera de nuevas solicitudes. Para sincronizar 
 Pthread, más específicamente los ```pthread_mutex_t```para tener a los threads creados
 esperando por la señal del proceso principal indicando al thread que maneje la petición
 
-Se utiliza un mecanismo elegante para detener los hilos, cuando un hilo encuentra una llamada de terminacion 
-poner una bandera global de terminacion en true y apaga el server socket.
-
-El hilo principal se da cuenta y despierta a los hilos que al ver la bandera global de terminacion, tambien terminan
-
-El hilo principal espera que todos los hilos terminen antes de terminar el mismo.
-
-
 Compilar el Servidor Pre-Threaded
 -------------------------------
 
@@ -221,28 +213,3 @@ Ejemplo de uso
 ```
 ./serverPredefineForks 8080 5
 ``` 
-
-Detener el servidor
-=======
-Para detener el servidor ser hace una llamada como un cliente pero con una sintasix especial y un clave.
-http://localhost:8080/DETENER?PK=12345
-Hay un cliente especializado para denener el servido
-
-
-Compilar el cliente especializados para detener el servidor
--------------------
-
-1. Dirigirse a la capeta ./detener
-2. Utilizar el comando make para compilar el cliente utilizando el make file incluido
-3. Los objetos resultantes se encuentran en la carpeta ./detener/build
-
-Utilizar el cliente especializados para detener el servidor
--------------------
-
-El cliente  especializados para detener el servidor tiene como agumentos la máquina donde se está ejecutando el servidor
-y el puerto del servidor, 
-
-Ejemplo de uso del cliente especializados para detener el servidor
-```
-./detener 127.0.0.1 8080
-```
