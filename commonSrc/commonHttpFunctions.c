@@ -5,6 +5,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include "../headers/mime.h"
+#include "../headers/commonHttpFunctions.h"
 
 #define SERVER_ROOT "../../serverroot"
 
@@ -12,23 +13,6 @@ struct file_data {
     unsigned long size;
     void *data;
 };
-
-//Functions definition
-void errExit(const char *);
-
-char *find_start_of_body(char *);
-
-void divide_request_path(char **, char *);
-
-int send_response(int, char *, char *, void *, unsigned long);
-
-struct file_data *file_load(char *);
-
-void file_free(struct file_data *);
-
-void get_file(int, char *);
-
-int handle_http_request(int);
 
 char *find_start_of_body(char *header) {
     char *p;
@@ -61,7 +45,7 @@ int send_response(int fd, char *header, char *content_type, void *body, unsigned
     time_t t1 = time(NULL);
     int response_length = sprintf(
             response,
-            "%s\nDate: %sConnection: close\nContent-Length: %lu\nContent-Type: %s\n""\n",
+            "%s\nDate: %sConnection: close\nContent-Length: %lu\nContent-Type: %s\n\n",
             header,
             asctime(localtime(&t1)),
             content_length,
@@ -137,12 +121,14 @@ void get_file(int fd, char *request_path) {
 
     sprintf(filepath, "%s%s", SERVER_ROOT, request_path);
     filedata = file_load(filepath);
+
     if (filedata == NULL) {
-        return;
+        send_response(fd, "HTTP/1.1 404 NOT FOUND", "None", "File not found", 14);
+    } else {
+        mime_type = mime_type_get(filepath);
+        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+        file_free(filedata);
     }
-    mime_type = mime_type_get(filepath);
-    send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
-    file_free(filedata);
 }
 
 int handle_http_request(int fd) {
@@ -162,7 +148,6 @@ int handle_http_request(int fd) {
     }
     if (bytes_recvd > 0) {
         request[bytes_recvd] = '\0';
-        printf("%s\n", request);
         p = find_start_of_body(request);
         if (p == NULL) {
             printf("Could not find end of header\n");
@@ -171,7 +156,6 @@ int handle_http_request(int fd) {
         sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
         strcpy(request_path_copy, request_path);
         divide_request_path(request_path_div, request_path_copy);
-
         if (strcmp(request_type, "GET") == 0) {
             get_file(fd, request_path);
             return 0;

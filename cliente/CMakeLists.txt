@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 include_directories(../commonSrc ../headers)
 
 add_executable(projecto-client
-        client.c
+        cliente.c
         ../headers/argValidator.h
         ../commonSrc/argValidator.c
         )

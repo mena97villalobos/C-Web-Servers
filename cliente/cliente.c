@@ -8,7 +8,7 @@
 #include "argValidator.h"
 #include <pthread.h>
 #include <semaphore.h>
-#include <time.h>
+#include <sys/time.h>
 
 #define OUT_FILE "/dev/null"
 #define BUFFER_SIZE 1024
@@ -26,16 +26,24 @@
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
-const char *help_string = "Usage: client <ip> <port> <file_name> <n-thread> <n-cycles>\n";
+const char *help_string = "Usage: client <ip> <port> <file_name> <n-thread> <n-cycles> [v]\n";
 
 //Test variables
-double *mgby_sec;
-double *first_request_sec;
+int *total_success;
+long *total_bytes;
+long *total_ms;
+long *first_request_msec;
+
+
+int success_request = 0;
 int error_request = 0;
 int clientCounter = 0;
 sem_t mutex;
 
 //Struct for thread arguments
+
+int verbose = 0;
+
 struct arg_thread {
     char *request;
     char *port;
@@ -57,11 +65,12 @@ void *thread_request(void *arguments);
 
 void printProgress(double percentage);
 
-double calculate_average_speed(int n_threads, int n_cycles);
+double calculate_transfered_MB(int n_threads);
 
-double calculate_average_first_speed(int n_threads, int n_cycles);
+int calculate_successes(int n_threads);
 
 //C function to print de progress
+
 void printProgress(double percentage) {
     int val = (int) (percentage * 100);
     int lpad = (int) (percentage * PBWIDTH);
@@ -70,7 +79,14 @@ void printProgress(double percentage) {
     fflush(stdout);
 }
 
+long tick(void) {
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    return tp.tv_sec * 1000 + tp.tv_usec / 1000;
+}
+
 //C final header function implementation, return -1 if the standard is incorrect
+
 int final_header(const char string[], int maxCheck) {
     int i = 0, j = 0, flat = 0;
 
@@ -90,12 +106,14 @@ int final_header(const char string[], int maxCheck) {
 }
 
 // C error exit function implementation
+
 void errExit(const char *str) {
     fprintf(stderr, "%s", str);
     exit(-1);
 }
 
 // C substring function implementation
+
 void substring(const char s[], char sub[], int p, int l) {
     int c = 0;
     while (c < l) {
@@ -106,19 +124,18 @@ void substring(const char s[], char sub[], int p, int l) {
 }
 
 // Code to create a request
-void make_request(char *request, char *port, char *ip, int id_location, int id_cycle) {
+
+void make_request(char *request, char *port, char *ip, int thread_id, int id_cycle) {
     //Define initial variables
     struct addrinfo *result, hints;
     int srvfd;
-    char temp_buf[BUFFER_SIZE];
     char buf[BUFFER_SIZE];
-    unsigned long total_bytes = 0;
+    unsigned long total_request_bytes;
 
-    memset(temp_buf, 0, BUFFER_SIZE);
     memset(buf, 0, BUFFER_SIZE);
 
     // Clean variables
-    memset(&hints, 0, sizeof(struct addrinfo));
+    memset(&hints, 0, sizeof (struct addrinfo));
 
     // Define internet protocol
     hints.ai_family = AF_UNSPEC;
@@ -133,7 +150,9 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     srvfd = socket(result->ai_family, SOCK_STREAM, 0);
 
     if (srvfd < 0) {
-        fprintf(stderr, "%s\n", "socket()");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Error socket()\n");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
@@ -141,16 +160,14 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     }
 
     if (connect(srvfd, result->ai_addr, result->ai_addrlen) == -1) {
-        fprintf(stderr, "%s\n", "connect");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Error on connect\n");
+        }
         sem_wait(&mutex);
         error_request++;
         sem_post(&mutex);
         return;
     }
-
-
-    // Initial time first request
-    clock_t begin_first = clock();
 
     //Send http request
     write(srvfd, request, strlen(request));
@@ -162,11 +179,10 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
     FILE *destFile = fopen(OUT_FILE, "wb");
 
     // Initial time
-    clock_t begin = clock();
+    clock_t begin = tick();
     //Check a remove the initial header
-    int bytesReceived = recv(srvfd, temp_buf, BUFFER_SIZE, 0);
-    clock_t end_first = clock();
-    total_bytes += bytesReceived;
+    int bytesReceived = recv(srvfd, buf, BUFFER_SIZE, 0);
+    clock_t end_first = tick();
     if (bytesReceived < 0) {
         fprintf(stderr, "%s\n", "recv() failed");
         sem_wait(&mutex);
@@ -174,41 +190,62 @@ void make_request(char *request, char *port, char *ip, int id_location, int id_c
         sem_post(&mutex);
         return;
     }
-    int header_final_location = final_header(temp_buf, bytesReceived);
+    int header_final_location = final_header(buf, bytesReceived);
+    total_request_bytes = header_final_location;
     if (header_final_location == -1) {
-        fprintf(stderr, "%s\n", "Error http format in the server");
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Error http format in the server");
+        }
+        sem_wait(&mutex);
+        error_request++;
+        sem_post(&mutex);
         return;
     }
-    substring(temp_buf, buf, header_final_location + 1, bytesReceived - header_final_location + 1);
-    bytesReceived -= header_final_location;
+    buf[header_final_location + 1] = '\0';
+    char *contentLengthPointer = strstr(buf, "Content-Length: ");
+    if (contentLengthPointer == 0) {
+        if (verbose) {
+            fprintf(stderr, "%s\n", "Content-Lenght not found.");
+        }
+        sem_wait(&mutex);
+        error_request++;
+        sem_post(&mutex);
+        return;
+    }
+    int contentLength;
+    sscanf(&(contentLengthPointer[16]), "%d", &contentLength);
+    total_request_bytes += contentLength;
+    //Already read some bytes
+    contentLength -= (bytesReceived - header_final_location);
 
     //Cycling to get all files
-    while (bytesReceived != 0) {
-        fwrite(buf, bytesReceived, 1, destFile);
+    while (contentLength != 0) {
         bytesReceived = recv(srvfd, buf, BUFFER_SIZE, 0);
-        total_bytes += bytesReceived;
         if (bytesReceived < 0) {
-            fprintf(stderr, "%s\n", "recv() failed");
+            if (verbose) {
+                fprintf(stderr, "%s\n", "recv() failed");
+            }
             sem_wait(&mutex);
             error_request++;
             sem_post(&mutex);
             return;
         }
+        contentLength -= bytesReceived;
     }
 
-    clock_t end = clock();
-    double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-    double time_spent_first = (double) (end_first - begin_first) / CLOCKS_PER_SEC;
-    double total_megaby = (double) total_bytes * 0.000001;
-    double megaby_sec = total_megaby / time_spent;
-    sem_wait(&mutex);
-    mgby_sec[id_location + id_cycle] = megaby_sec;
-    first_request_sec[id_location + id_cycle] = time_spent_first;
-    sem_post(&mutex);
+    clock_t end = tick();
+
+    //No mutex required as every thread uses its own mem
+    total_bytes[thread_id] += total_request_bytes;
+    first_request_msec[thread_id ] += (end_first - begin);
+    total_ms[thread_id ] += (end - begin);
+    ++total_success[thread_id];
 
     //Close files and free memory
     fclose(destFile);
     close(srvfd);
+
+
 }
 
 void *thread_request(void *arguments) {
@@ -216,43 +253,53 @@ void *thread_request(void *arguments) {
     for (int i = 0; i < args.n_cycles; ++i) {
         sem_wait(&mutex);
         clientCounter += 1;
-        printf("Clientes activados: %i\n", clientCounter);
         sem_post(&mutex);
-        make_request(args.request, args.port, args.ip, args.id_thread * args.n_cycles, i);
+        if (verbose) {
+            printf("Total requests: %i (Thread Id: %d, Exec %d).\n", clientCounter, args.id_thread, i);
+        }
+        make_request(args.request, args.port, args.ip, args.id_thread, i);
     }
 
     free(arguments);
     return NULL;
 }
 
-double calculate_average_speed(int n_threads, int n_cycles) {
-    int total_ok = 0;
-    double total_speed = 0;
-    for (int i = 0; i < n_threads * n_cycles; ++i) {
-        if (mgby_sec[i] != '\0') {
-            total_speed += mgby_sec[i];
-            total_ok++;
-        }
+double calculate_transfered_MB(int n_threads) {
+    double total_MB = 0;
+    for (int i = 0; i < n_threads; ++i) {
+        total_MB += total_bytes[i];
     }
-    if (total_ok == 0) {
-        return 0.0;
-    }
-    return total_speed / (double) total_ok;
+    //Megabites no mebibites
+    return total_MB / 1000000.0;
 }
 
-double calculate_average_first_speed(int n_threads, int n_cycles) {
-    int total_ok = 0;
-    double total_speed = 0;
-    for (int i = 0; i < n_threads * n_cycles; ++i) {
-        if (first_request_sec[i] != '\0') {
-            total_speed += first_request_sec[i];
-            total_ok++;
-        }
+/**
+ * Calculates total ms
+ * @param n_threads
+ * @return 
+ */
+double calculate_total_msec(int n_threads) {
+    double total_sec = 0;
+    for (int i = 0; i < n_threads; ++i) {
+        total_sec += total_ms[i];
     }
-    if (total_ok == 0) {
-        return 0.0;
+    return total_sec;
+}
+
+double calculate_total_acceptance_msec(int n_threads) {
+    double request_msec = 0;
+    for (int i = 0; i < n_threads; ++i) {
+        request_msec += first_request_msec[i];
     }
-    return total_speed / (double) total_ok;
+    return request_msec;
+}
+
+int calculate_successes(int n_threads) {
+    int total_succ = 0;
+    for (int i = 0; i < n_threads; ++i) {
+        total_succ += total_success[i];
+    }
+    return total_succ;
 }
 
 int main(int argc, char **argv) {
@@ -262,7 +309,7 @@ int main(int argc, char **argv) {
     sem_init(&mutex, 0, 1);
 
     //Check the count of arguments
-    if (argc < 6)
+    if (argc < 6 || argc > 7)
         errExit(help_string);
 
     // Validate program arguments
@@ -271,6 +318,14 @@ int main(int argc, char **argv) {
     if (!validate_number(argv[4])) errExit("Invalid n-threads");
     if (!validate_number(argv[5])) errExit("Invalid n-cycles");
 
+    if (argc == 7) {
+        if (strcmp(argv[6], "v") == 0) {
+            printf("Verbose enabled\n");
+            verbose = 1;
+        } else {
+            errExit(help_string);
+        }
+    }
     // Clean variables
     memset(port, 0, 6);
     memset(ip, 0, 16);
@@ -284,34 +339,43 @@ int main(int argc, char **argv) {
     n_cycles = atoi(argv[5]);
 
     //Define global variables
-    mgby_sec = (double *) malloc(n_threads * n_cycles * sizeof(double));
-    first_request_sec = (double *) malloc(n_threads * n_cycles * sizeof(double));
+    total_bytes = (long *) calloc(n_threads, sizeof (long));
+    total_ms = (long *) calloc(n_threads, sizeof (long));
+    first_request_msec = (long *) calloc(n_threads, sizeof (long));
+    total_success = (int *) calloc(n_threads, sizeof (int));
 
     // Check if the memory has been successfully 
-    if (mgby_sec == NULL) {
-        printf("Memory (mgby_sec) not allocated.\n");
+    if (total_bytes == NULL) {
+        printf("Memory (total_bytes) not allocated.\n");
         exit(0);
     }
 
     // Check if the memory has been successfully 
-    if (first_request_sec == NULL) {
-        printf("Memory (first_request_sec) not allocated.\n");
+    if (total_ms == NULL) {
+        printf("Memory (total_ms) not allocated.\n");
         exit(0);
     }
-
-    memset(mgby_sec, '\0', n_threads * n_cycles);
-    memset(first_request_sec, '\0', n_threads * n_cycles);
+    // Check if the memory has been successfully 
+    if (first_request_msec == NULL) {
+        printf("Memory (first_request_msec) not allocated.\n");
+        exit(0);
+    }
+    // Check if the memory has been successfully 
+    if (total_success == NULL) {
+        printf("Memory (total_success) not allocated.\n");
+        exit(0);
+    }
 
     //Create http request
     char request[54 + strlen(filename) + strlen(ip)];
     sprintf(request, "GET /%s HTTP/1.1\nHost: %s\nUser-agent: simple-http client\n\n", filename, ip);
     pthread_t all_tid[n_threads];
 
-    printf(ANSI_COLOR_RED     "The server test is starting!"     ANSI_COLOR_RESET "\n");
+    printf(ANSI_COLOR_RED "The server test is starting!" ANSI_COLOR_RESET "\n");
 
     for (int i = 0; i < n_threads; i++) {
         //--Arguments to send to thread
-        struct arg_thread *args_send = malloc(sizeof(*args_send));
+        struct arg_thread *args_send = malloc(sizeof (*args_send));
         struct arg_thread args;
         if (args_send == NULL) {
             fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
@@ -331,17 +395,32 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < n_threads; i++) { /* Wait until all threads are finished */
         pthread_join(all_tid[i], NULL);
-        printProgress((float) i / (float) n_threads);
     }
     printProgress(1.0);
     printf("\n");
-    printf(ANSI_COLOR_RED     "The results of test are:"     ANSI_COLOR_RESET "\n");
-    printf("%s %f mg/seg\n", "Average transfer speed:", calculate_average_speed(n_threads, n_cycles));
-    printf("%s %f seg\n", "Average speed of request acceptance:", calculate_average_first_speed(n_threads, n_cycles));
-    printf("%s %i\n", "Amount of transfers canceled:", error_request);
+    printf(ANSI_COLOR_RED "The results of test are:" ANSI_COLOR_RESET "\n");
 
-    free(mgby_sec);
-    free(first_request_sec);
+    double mb = calculate_transfered_MB(n_threads);
+    int success = calculate_successes(n_threads);
+    double total_msec = calculate_total_msec(n_threads);
+
+    printf("Total data size transfered: %.2f MB.\n", mb);
+    printf("Total success request: %d.\n", success);
+    printf("Total failures request: %d.\n", error_request);
+    if (success > 0) {
+        printf("Average transfer speed: %.2f MB/seg\n", mb / (total_msec / 1000.0));
+        printf("Average duration : %.2f ms\n", total_msec / (double) success);
+        printf("Average speed of request acceptance:  %.2f ms\n",
+                calculate_total_acceptance_msec(n_threads) / (double) success);
+    } else {
+        printf("Not stats as not a single request succeed.\n");
+    }
+
+
+    free(total_bytes);
+    free(first_request_msec);
+    free(total_success);
+    free(total_ms);
     sem_destroy(&mutex);
     return 0;
 }

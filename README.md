@@ -19,8 +19,8 @@ Contenidos del proyecto
 
 ```
 .
-├── clientSRC                     # Carpeta con archivos fuente del cliente
-│   ├── client.c                  # Código fuente del cliente
+├── cliente                     # Carpeta con archivos fuente del cliente
+│   ├── cliente.c                  # Código fuente del cliente
 │   └── makefile                  # makefile para el cliente
 │
 ├── commonSrc                     # Carpeta con los archivos fuente comunes para todos los proyectos
@@ -67,9 +67,9 @@ Cliente
 Compilar el Cliente
 -------------------
 
-1. Dirigirse a la capeta ./clientSRC
+1. Dirigirse a la capeta ./client
 2. Utilizar el comando make para compilar el cliente utilizando el make file incluido
-3. Los objetos resultantes se encuentran en la carpeta ./clientSRC/build
+3. Los objetos resultantes se encuentran en la carpeta ./client/build
 
 Utilizar el cliente
 -------------------
@@ -79,7 +79,14 @@ el archivo que se solicita, la cantidad de hilos que el cliente utilizará y la 
 
 Ejemplo de uso del cliente
 ```
-./client 127.0.0.1 8080 video.mp4 5 1
+./cliente 127.0.0.1 8080 video.mp4 5 1
+```
+
+Opcionalmente el cliente tiene el argumento ```v```, este argumento muestra los request realizados (estilo verbose) 
+por el cliente
+
+```
+./cliente 127.0.0.1 8080 video.mp4 5 1 v
 ```
 
 Versión Secuencial
@@ -159,7 +166,7 @@ hilos que se crearán para manejar las solicitudes, la implementación inicia cr
 posteriormente se utiliza el proceso principal para escuchar peticiones al servidor, cada petición que llega al 
 servidor se asigna a uno de los threads pre creados, estos threads manejan la petición y responden al cliente pero no
 mueren, sino que permanecen a la espera de nuevas solicitudes. Para sincronizar los procesos se utiliza la librería
-Pthread, más específicamente los ```pthread_mutex_t``` y los ```pthread_cond_t``` para tener a los threads creados
+Pthread, más específicamente los ```pthread_mutex_t```para tener a los threads creados
 esperando por la señal del proceso principal indicando al thread que maneje la petición
 
 Compilar el Servidor Pre-Threaded

@@ -17,4 +17,7 @@ void get_file(int, char *);
 
 int handle_http_request(int);
 
+
+int server_stopped(void);
+
 #endif //SERVER_PREDEFINE_FORKS_COMMONHTTPFUNCTIONS_H

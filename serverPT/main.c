@@ -15,10 +15,9 @@
 const char *help_string = "Usage: server <puerto> <max-threads>\n";
 
 //Variables to synchronize all threads
-pthread_mutex_t mut_allt = PTHREAD_MUTEX_INITIALIZER; //Semaphore to stop all threads
-pthread_cond_t con_allt = PTHREAD_COND_INITIALIZER; //Condition to broadcast all threads
-pthread_cond_t con_server = PTHREAD_COND_INITIALIZER; //Condition to broadcast server
-bool is_used = false;
+pthread_mutex_t new_req; //Semaphore to tell threads new request
+pthread_mutex_t req_consumed; //Semaphore to tell main thread to continue
+int listenfd;
 int global_newfd = 0;
 
 void key_listener() {
@@ -71,6 +70,7 @@ int main(int argc, char **argv) {
     char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
+    signal(SIGUSR1, signal_handler);
 
     // Launch a fork to handle stdin and check if user wants to stop the program
     pid_t keyboard_listener_pid = fork();
