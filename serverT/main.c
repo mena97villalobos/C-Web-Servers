@@ -9,8 +9,25 @@
 #include "../headers/net.h"
 #include "../headers/argValidator.h"
 #include <pthread.h>
+#include <signal.h>
 
 const char *help_string = "Usage: server <puerto>\n";
+
+void key_listener() {
+    int ch = 0;
+    printf("Press q to kill all threads and terminate server\n");
+    // Wait for character "q" to be pressed
+    while (ch != 113) {
+        ch = getchar();
+    }
+    kill(0, SIGUSR1);
+}
+
+void signal_handler(int signal) {
+    if (signal == SIGUSR1) {
+        _exit(0);
+    }
+}
 
 void *thread_request(void *arguments) {
     int newfd = *((int *) arguments);
@@ -21,7 +38,6 @@ void *thread_request(void *arguments) {
     }
     free(arguments);
     pthread_exit(NULL);
-    return NULL;
 }
 
 int main(int argc, char **argv) {
@@ -29,6 +45,15 @@ int main(int argc, char **argv) {
     char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
+
+    signal(SIGUSR1, signal_handler);
+
+    // Launch a fork to handle stdin and check if user wants to stop the program
+    pid_t keyboard_listener_pid = fork();
+    if (keyboard_listener_pid != 0) {
+        key_listener();
+        return 0;
+    }
 
     //Check the count of arguments
     if (argc < 2)

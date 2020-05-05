@@ -28,7 +28,7 @@ void key_listener() {
     while (ch != 113) {
         ch = getchar();
     }
-    kill(0, SIGKILL);
+    kill(0, SIGUSR1);
 }
 
 void signal_handler(int signal) {
@@ -76,6 +76,7 @@ int main(int argc, char **argv) {
     char port[6] = "";
     struct sockaddr_storage their_addr;
     char s[INET6_ADDRSTRLEN];
+
     signal(SIGUSR1, signal_handler);
 
     // Launch a fork to handle stdin and check if user wants to stop the program
