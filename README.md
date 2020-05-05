@@ -213,3 +213,10 @@ Ejemplo de uso
 ```
 ./serverPredefineForks 8080 5
 ``` 
+
+¿Cómo detener los servidores de forma elegante?
+===============================================
+
+Para detener cualquiera de los servidores se presenta la consola de comandos en la que se corre el programa,
+en esta se muestra un mensaje que indica ```Presione q para detener el servidor``` cuando se presiona la tecla 
+```q``` se lanza la interrupción customizable ```SIGUSR1``` esta señal se maneja tal que todos los procesos mueran cuando se recibe
