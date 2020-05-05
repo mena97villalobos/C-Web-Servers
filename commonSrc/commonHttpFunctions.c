@@ -7,6 +7,7 @@
 #include "../headers/mime.h"
 #include "../headers/commonHttpFunctions.h"
 #include <unistd.h> // for close
+#include <signal.h>
 
 #define SERVER_ROOT "../../serverroot"
 
@@ -29,7 +30,7 @@ char *find_start_of_body(char *header) {
 
 void errExit(const char *str) {
     fprintf(stderr, "%s", str);
-    exit(-1);
+    kill(0, SIGUSR1);
 }
 
 void divide_request_path(char **request_divided, char *request_path) {

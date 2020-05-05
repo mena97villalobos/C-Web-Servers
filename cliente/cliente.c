@@ -37,7 +37,6 @@ int executedThreads = 0;
 int error_request = 0;
 int clientCounter = 0;
 sem_t mutex;
-sem_t mutex_write;
 
 //Struct for thread arguments
 
@@ -298,7 +297,6 @@ int main(int argc, char **argv) {
     int n_threads, n_cycles;
     char port[6] = "", ip[16] = "", filename[1000] = "";
     sem_init(&mutex, 0, 1);
-    sem_init(&mutex_write, 0, 1);
 
     //Check the count of arguments
     if (argc < 6 || argc > 7)
@@ -424,7 +422,6 @@ int main(int argc, char **argv) {
     free(total_success);
     free(total_ms);
     sem_destroy(&mutex);
-    sem_destroy(&mutex_write);
     fclose(destFile);
     return 0;
 }

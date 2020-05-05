@@ -32,26 +32,24 @@ int main(int argc, char **argv) {
 
     int listenfd = get_listener_socket(port);
     if (listenfd < 0) {
-        fprintf(stderr, "webserver: fatal error getting listening socket\n");
-        exit(1);
+        errExit("webserver: fatal error getting listening socket\n");
     }
 
     while (1) {
         socklen_t sin_size = sizeof their_addr;
         newfd = accept(listenfd, (struct sockaddr *) &their_addr, &sin_size);
         if (newfd == -1) {
-            close(listenfd);
-            printf("Forked Server received stop request. Stopping.\n");
-            exit(0);
+            perror("accept");
+            continue;
         }
-        
+
         pid = fork();
         // Child process, handle request
         if (pid == 0) {
             inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
             handle_http_request(newfd);
             // Child process must leave the while statement to avoid creating another server
-            exit(0);
+            break;
         }
     }
 

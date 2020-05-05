@@ -162,8 +162,7 @@ int main(int argc, char **argv) {
 
     int listenfd = get_listener_socket(port);
     if (listenfd < 0) {
-        fprintf(stderr, "webserver: fatal error getting listening socket\n");
-        exit(1);
+        errExit("webserver: fatal error getting listening socket\n");
     }
 
     for (int i = 0; i < n_threads; i++) {

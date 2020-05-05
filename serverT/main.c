@@ -45,8 +45,7 @@ int main(int argc, char **argv) {
 
     int listenfd = get_listener_socket(port);
     if (listenfd < 0) {
-        fprintf(stderr, "webserver: fatal error getting listening socket\n");
-        exit(1);
+        errExit("webserver: fatal error getting listening socket\n");
     }
     while (1) {
         socklen_t sin_size = sizeof their_addr;
@@ -61,20 +60,22 @@ int main(int argc, char **argv) {
             int *arg_thread = malloc(sizeof(*arg_thread));
             if (arg_thread == NULL) {
                 fprintf(stderr, "Couldn't allocate memory for thread arg.\n");
-                exit(EXIT_FAILURE);
+                close(newfd);
+                continue;
             }
             *arg_thread = newfd;
             //---
             int err = pthread_create(&var_thread, NULL, &thread_request, arg_thread);
 
-            if (err!= 0) {
-                printf("Error in thread creation!, error: %s\n",strerror(err));
+            if (err != 0) {
+                printf("Error in thread creation!, error: %s\n", strerror(err));
+                free(arg_thread);
                 close(newfd);
                 continue;
             }
             err = pthread_detach(var_thread);
-            if (err!= 0) {
-                printf("Error in thread detach!, error: %s\n",strerror(err));
+            if (err != 0) {
+                printf("Error in thread detach!, error: %s\n", strerror(err));
             }
             pthread_detach(var_thread);
             inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
